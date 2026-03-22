@@ -18,19 +18,30 @@ function formatFR(n: number): string {
   return n.toLocaleString('fr-FR')
 }
 
-export function PerformanceDashboard() {
+interface PerformanceDashboardProps {
+  initialAccountStats: IGAccountStats | null
+  initialMedia: IGMedia[]
+  initialTokenExpired: boolean
+}
+
+export function PerformanceDashboard({
+  initialAccountStats,
+  initialMedia,
+  initialTokenExpired,
+}: PerformanceDashboardProps) {
   const [period, setPeriod] = useState<PeriodKey>('7d')
   const [customStart, setCustomStart] = useState(daysAgo(7))
   const [customEnd, setCustomEnd] = useState(daysAgo(0))
   const [compareEnabled, setCompareEnabled] = useState(false)
 
-  const [accountStats, setAccountStats] = useState<IGAccountStats | null>(null)
-  const [allMedia, setAllMedia] = useState<IGMedia[]>([])
+  // Données initiales chargées côté serveur
+  const accountStats = initialAccountStats
+  const allMedia = initialMedia
+  const tokenExpired = initialTokenExpired
+
   const [insights, setInsights] = useState<Record<string, IGMediaInsights>>({})
   const [accountInsights, setAccountInsights] = useState<IGAccountInsightsDay[]>([])
   const [prevAccountInsights, setPrevAccountInsights] = useState<IGAccountInsightsDay[]>([])
-  const [tokenExpired, setTokenExpired] = useState(false)
-  const [loading, setLoading] = useState(true)
 
   // Calculer les dates de la période
   const { since, until, prevSince, prevUntil } = useMemo(() => {
@@ -62,27 +73,6 @@ export function PerformanceDashboard() {
       prevUntil: daysAgo(days),
     }
   }, [period, customStart, customEnd])
-
-  // Charger les données de base
-  useEffect(() => {
-    setLoading(true)
-    Promise.all([
-      fetch('/api/instagram/account').then(r => r.ok ? r.json() : null),
-      fetch('/api/instagram/media').then(r => r.ok ? r.json() : null),
-    ]).then(([stats, mediaRes]) => {
-      if (!stats && !mediaRes?.data?.length) {
-        setTokenExpired(true)
-      } else {
-        setTokenExpired(false)
-      }
-      setAccountStats(stats?.error ? null : stats)
-      setAllMedia(mediaRes?.data || [])
-      setLoading(false)
-    }).catch(() => {
-      setTokenExpired(true)
-      setLoading(false)
-    })
-  }, [])
 
   // Batch fetch insights pour tous les posts (groupes de 5)
   const fetchAllInsights = useCallback(async (media: IGMedia[]) => {
@@ -179,25 +169,21 @@ export function PerformanceDashboard() {
     return Math.round(((curr - prev) / prev) * 100)
   }
 
-  // Meilleur post
+  // Meilleur post (basé sur likes directement, pas sur insights qui peuvent ne pas être chargés)
   const bestPost = useMemo(() => {
     if (filteredMedia.length === 0) return null
-    const best = filteredMedia.reduce((b, p) => {
-      const isVideo = p.media_type === 'REEL' || p.media_type === 'VIDEO'
-      const views = isVideo ? (insights[p.id]?.video_views ?? insights[p.id]?.plays ?? 0) : (insights[p.id]?.impressions ?? 0)
-      const bIsVideo = b.media_type === 'REEL' || b.media_type === 'VIDEO'
-      const bViews = bIsVideo ? (insights[b.id]?.video_views ?? insights[b.id]?.plays ?? 0) : (insights[b.id]?.impressions ?? 0)
-      return views > bViews ? p : b
-    }, filteredMedia[0])
-    const isVideo = best.media_type === 'REEL' || best.media_type === 'VIDEO'
+    const best = filteredMedia.reduce((b, p) =>
+      (p.like_count || 0) > (b.like_count || 0) ? p : b
+    , filteredMedia[0])
+
     return {
       id: best.id,
       thumbnail: best.thumbnail_url || best.media_url,
       caption: best.caption || best.id,
-      views: isVideo ? (insights[best.id]?.video_views ?? insights[best.id]?.plays ?? 0) : (insights[best.id]?.impressions ?? 0),
+      views: best.like_count || 0,
       likes: best.like_count || 0,
     }
-  }, [filteredMedia, insights])
+  }, [filteredMedia])
 
   const kpiItems = [
     {
@@ -238,20 +224,6 @@ export function PerformanceDashboard() {
     },
   ]
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-10 bg-gray-100 rounded-lg animate-pulse" />
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />
-          ))}
-        </div>
-        <div className="h-96 bg-gray-100 rounded-xl animate-pulse" />
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       {tokenExpired && (
@@ -272,6 +244,9 @@ export function PerformanceDashboard() {
             </span>
           )}
         </div>
+        {allMedia.length > 0 && (
+          <p className="text-xs text-gray-400 mt-1">{allMedia.length} posts chargés — {filteredMedia.length} sur la période</p>
+        )}
       </div>
 
       <PeriodSelector
