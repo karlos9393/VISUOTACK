@@ -1,124 +1,110 @@
 import { createClient } from '@/lib/supabase/server'
-import { format, startOfWeek, endOfWeek, subWeeks } from 'date-fns'
-import { fr } from 'date-fns/locale'
 import { KpiCard } from '@/components/ui/kpi-card'
-import { WeekNavigator } from '@/components/pipeline/week-navigator'
-import { PostStatsTable } from '@/components/contenu/post-stats-table'
+import { IgMediaTable } from '@/components/contenu/ig-media-table'
 import { ContentTrend } from '@/components/contenu/content-trend'
+import { getAccountStats, getMediaList } from '@/lib/services/instagram'
+import { format, subWeeks, startOfWeek, endOfWeek } from 'date-fns'
+import { fr } from 'date-fns/locale'
 
-interface PageProps {
-  searchParams: { week?: string }
-}
+export const dynamic = 'force-dynamic'
 
-export default async function PerformancePage({ searchParams }: PageProps) {
-  const weekOffset = Number(searchParams.week || 0)
-  const now = new Date()
-  const targetDate = subWeeks(now, weekOffset)
-  const weekStart = startOfWeek(targetDate, { weekStartsOn: 1 })
-  const weekEnd = endOfWeek(targetDate, { weekStartsOn: 1 })
-  const isSunday = now.getDay() === 0
-
+export default async function PerformancePage() {
   const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
 
-  // Posts publiés cette semaine
-  const { data: posts } = await supabase
-    .from('content_posts')
-    .select('*')
-    .eq('status', 'publie')
-    .gte('scheduled_at', format(weekStart, 'yyyy-MM-dd'))
-    .lte('scheduled_at', format(weekEnd, 'yyyy-MM-dd'))
-    .order('views', { ascending: false })
+  // Données live Instagram
+  const [accountStats, mediaList] = await Promise.all([
+    getAccountStats(),
+    getMediaList(),
+  ])
 
-  const weekPosts = posts || []
-  const totalViews = weekPosts.reduce((s, p) => s + p.views, 0)
-  const totalFollowers = weekPosts.reduce((s, p) => s + p.followers_gained, 0)
-  const bestPost = weekPosts[0]
+  const tokenExpired = !accountStats && !mediaList.length
 
-  // Semaine précédente pour comparaison
-  const prevWeekStart = startOfWeek(subWeeks(targetDate, 1), { weekStartsOn: 1 })
-  const prevWeekEnd = endOfWeek(subWeeks(targetDate, 1), { weekStartsOn: 1 })
-  const { data: prevPosts } = await supabase
-    .from('content_posts')
-    .select('views, followers_gained')
-    .eq('status', 'publie')
-    .gte('scheduled_at', format(prevWeekStart, 'yyyy-MM-dd'))
-    .lte('scheduled_at', format(prevWeekEnd, 'yyyy-MM-dd'))
+  // Calculs à partir des données live
+  const now = new Date()
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 })
 
-  const prevData = prevPosts || []
-  const prevViews = prevData.reduce((s, p) => s + p.views, 0)
-  const prevFollowers = prevData.reduce((s, p) => s + p.followers_gained, 0)
+  // Posts de cette semaine
+  const weekPosts = mediaList.filter(m => new Date(m.timestamp) >= weekStart)
+  const totalLikes = weekPosts.reduce((s, p) => s + (p.like_count || 0), 0)
+  const totalComments = weekPosts.reduce((s, p) => s + (p.comments_count || 0), 0)
 
-  const viewsTrend = prevViews > 0 ? Math.round(((totalViews - prevViews) / prevViews) * 100) : 0
-  const followersTrend = prevFollowers > 0 ? Math.round(((totalFollowers - prevFollowers) / prevFollowers) * 100) : 0
+  // Posts de la semaine précédente
+  const prevWeekStart = startOfWeek(subWeeks(now, 1), { weekStartsOn: 1 })
+  const prevWeekEnd = endOfWeek(subWeeks(now, 1), { weekStartsOn: 1 })
+  const prevWeekPosts = mediaList.filter(m => {
+    const d = new Date(m.timestamp)
+    return d >= prevWeekStart && d <= prevWeekEnd
+  })
+  const prevLikes = prevWeekPosts.reduce((s, p) => s + (p.like_count || 0), 0)
+  const likesTrend = prevLikes > 0
+    ? Math.round(((totalLikes - prevLikes) / prevLikes) * 100)
+    : 0
 
-  // Données tendance 8 semaines
+  // Données tendance 8 semaines (à partir des posts récupérés)
   const trendData = []
   for (let i = 7; i >= 0; i--) {
     const ws = startOfWeek(subWeeks(now, i), { weekStartsOn: 1 })
     const we = endOfWeek(subWeeks(now, i), { weekStartsOn: 1 })
-    const { data: wPosts } = await supabase
-      .from('content_posts')
-      .select('views, followers_gained')
-      .eq('status', 'publie')
-      .gte('scheduled_at', format(ws, 'yyyy-MM-dd'))
-      .lte('scheduled_at', format(we, 'yyyy-MM-dd'))
-
-    const wd = wPosts || []
+    const wPosts = mediaList.filter(m => {
+      const d = new Date(m.timestamp)
+      return d >= ws && d <= we
+    })
     trendData.push({
       week: format(ws, 'dd/MM', { locale: fr }),
-      views: wd.reduce((s, p) => s + p.views, 0),
-      followers: wd.reduce((s, p) => s + p.followers_gained, 0),
+      views: wPosts.reduce((s, p) => s + (p.like_count || 0), 0),
+      followers: wPosts.reduce((s, p) => s + (p.comments_count || 0), 0),
     })
   }
 
   return (
     <div className="space-y-6">
-      {isSunday && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center justify-between">
-          <span className="text-sm text-blue-800">
-            C&apos;est dimanche — as-tu rempli les stats de la semaine ?
+      {tokenExpired && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <span className="text-sm text-red-800">
+            Token Instagram expiré ou invalide. Contacte l&apos;admin pour le renouveler.
           </span>
-          <a href="#stats-table" className="text-sm font-medium text-blue-600 hover:text-blue-700">
-            Remplir les stats
-          </a>
         </div>
       )}
 
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Performance contenu</h1>
-          <p className="text-gray-500 mt-1">
-            Semaine du {format(weekStart, 'dd MMMM', { locale: fr })} au {format(weekEnd, 'dd MMMM yyyy', { locale: fr })}
-          </p>
+      <div>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">Performance Instagram</h1>
+          {!tokenExpired && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+              <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+              Live
+            </span>
+          )}
         </div>
-        <WeekNavigator currentOffset={weekOffset} />
+        <p className="text-gray-500 mt-1">
+          Semaine du {format(weekStart, 'dd MMMM yyyy', { locale: fr })}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
-          title="Posts publiés"
+          title="Abonnés"
+          value={accountStats?.followers_count?.toLocaleString('fr-FR') ?? '-'}
+          subtitle={accountStats ? `@${accountStats.username}` : undefined}
+        />
+        <KpiCard
+          title="Posts cette semaine"
           value={weekPosts.length}
         />
         <KpiCard
-          title="Vues totales"
-          value={totalViews.toLocaleString('fr-FR')}
-          trend={prevViews > 0 ? { value: viewsTrend, label: 'vs semaine préc.' } : undefined}
+          title="Likes cette semaine"
+          value={totalLikes.toLocaleString('fr-FR')}
+          trend={prevLikes > 0 ? { value: likesTrend, label: 'vs semaine préc.' } : undefined}
         />
         <KpiCard
-          title="Abonnés gagnés"
-          value={totalFollowers}
-          trend={prevFollowers > 0 ? { value: followersTrend, label: 'vs semaine préc.' } : undefined}
-        />
-        <KpiCard
-          title="Meilleur post"
-          value={bestPost?.title || '-'}
-          subtitle={bestPost ? `${bestPost.views.toLocaleString('fr-FR')} vues` : undefined}
+          title="Commentaires"
+          value={totalComments.toLocaleString('fr-FR')}
         />
       </div>
 
-      <div id="stats-table">
-        <PostStatsTable posts={weekPosts} />
-      </div>
+      <IgMediaTable media={mediaList} />
 
       <ContentTrend data={trendData} />
     </div>

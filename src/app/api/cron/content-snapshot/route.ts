@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { format, startOfWeek, endOfWeek } from 'date-fns'
+import { getAccountStats, getMediaList } from '@/lib/services/instagram'
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
@@ -25,19 +26,24 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'Snapshot déjà existant' })
   }
 
-  // Agréger les posts publiés de la semaine
-  const { data: posts } = await supabase
-    .from('content_posts')
-    .select('id, views, followers_gained')
-    .eq('status', 'publie')
-    .gte('published_at', format(weekStart, 'yyyy-MM-dd'))
-    .lte('published_at', format(weekEnd, 'yyyy-MM-dd'))
+  // Données live depuis l'API Instagram
+  const [accountStats, mediaList] = await Promise.all([
+    getAccountStats(),
+    getMediaList(),
+  ])
 
-  const weekPosts = posts || []
-  const totalViews = weekPosts.reduce((s, p) => s + p.views, 0)
-  const totalFollowers = weekPosts.reduce((s, p) => s + p.followers_gained, 0)
+  // Filtrer les posts de la semaine
+  const weekPosts = mediaList.filter(m => {
+    const d = new Date(m.timestamp)
+    return d >= weekStart && d <= weekEnd
+  })
+
+  const totalLikes = weekPosts.reduce((s, p) => s + (p.like_count || 0), 0)
+  const totalComments = weekPosts.reduce((s, p) => s + (p.comments_count || 0), 0)
+
+  // Best post = celui avec le plus de likes
   const bestPost = weekPosts.length > 0
-    ? weekPosts.reduce((best, p) => p.views > best.views ? p : best, weekPosts[0])
+    ? weekPosts.reduce((best, p) => (p.like_count || 0) > (best.like_count || 0) ? p : best, weekPosts[0])
     : null
 
   const { error } = await supabase
@@ -45,8 +51,10 @@ export async function GET(request: Request) {
     .insert({
       week_start: weekStartStr,
       posts_published: weekPosts.length,
-      total_views: totalViews,
-      followers_gained: totalFollowers,
+      total_views: totalLikes + totalComments,
+      followers_start: accountStats?.followers_count || 0,
+      followers_end: accountStats?.followers_count || 0,
+      followers_gained: 0,
       best_post_id: bestPost?.id || null,
     })
 
@@ -55,8 +63,8 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json({
-    message: 'Snapshot créé',
+    message: 'Snapshot Instagram créé',
     posts_published: weekPosts.length,
-    total_views: totalViews,
+    followers: accountStats?.followers_count || 0,
   })
 }
