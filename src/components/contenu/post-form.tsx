@@ -86,11 +86,12 @@ export function PostForm({ post, defaultDate, onDone }: PostFormProps) {
         defaultValue={post?.scheduled_at || defaultDate || ''}
       />
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
         <textarea
           name="notes"
-          rows={2}
+          rows={3}
           defaultValue={post?.notes || ''}
+          placeholder="Décris le contenu du post, l'angle, le message clé..."
           className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
         />
       </div>
