@@ -25,24 +25,29 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-  const pathname = request.nextUrl.pathname
+    const pathname = request.nextUrl.pathname
 
-  // Non authentifié → redirection login (sauf si déjà sur login ou 403)
-  if (!user && !pathname.startsWith('/login') && !pathname.startsWith('/403')) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
-  }
+    // Non authentifié → redirection login
+    if (!user && !pathname.startsWith('/login') && !pathname.startsWith('/403') && !pathname.startsWith('/api')) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      return NextResponse.redirect(url)
+    }
 
-  // Authentifié sur /login → redirection accueil
-  if (user && pathname.startsWith('/login')) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/'
-    return NextResponse.redirect(url)
+    // Authentifié sur /login → redirection accueil
+    if (user && pathname.startsWith('/login')) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/'
+      return NextResponse.redirect(url)
+    }
+  } catch (error) {
+    // Si Supabase est injoignable, laisser passer sans redirection
+    console.error('Middleware auth error:', error)
   }
 
   return supabaseResponse

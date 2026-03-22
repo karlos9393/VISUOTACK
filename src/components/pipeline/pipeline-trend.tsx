@@ -4,7 +4,7 @@ import { Card, CardTitle } from '@/components/ui/card'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
 interface PipelineTrendProps {
-  data: { week: string; closes: number; links: number }[]
+  data: { week: string; booked: number; links: number }[]
 }
 
 export function PipelineTrend({ data }: PipelineTrendProps) {
@@ -21,10 +21,10 @@ export function PipelineTrend({ data }: PipelineTrendProps) {
             <Legend />
             <Line
               type="monotone"
-              dataKey="closes"
+              dataKey="booked"
               stroke="#2563eb"
               strokeWidth={2}
-              name="Closes"
+              name="Calls bookés"
               dot={{ r: 4 }}
             />
             <Line

@@ -15,59 +15,72 @@ export default async function DashboardLayout({
 }) {
   const supabase = createClient()
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  } catch (e) {
+    console.error('Layout auth error:', e)
+    redirect('/login')
+  }
 
-  if (!user || authError) {
+  if (!user) {
     redirect('/login')
   }
 
   // Utiliser le admin client pour bypasser le RLS
   const adminClient = createAdminClient()
+  let profile = null
 
-  // Chercher le profil
-  let { data: profile } = await adminClient
-    .from('users')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-
-  // Si le profil n'existe pas, le créer automatiquement comme admin
-  if (!profile) {
-    const { data: newProfile, error: insertError } = await adminClient
+  try {
+    const { data } = await adminClient
       .from('users')
-      .insert({
-        id: user.id,
-        email: user.email!,
-        full_name: user.email!.split('@')[0],
-        role: 'admin',
-      })
-      .select()
+      .select('*')
+      .eq('id', user.id)
       .single()
-
-    if (insertError) {
-      console.error('Erreur création profil:', insertError)
-      // Fallback: afficher quand même avec des valeurs par défaut
-      return (
-        <ToastProvider>
-          <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-            <div className="text-center p-8">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Erreur de profil</h1>
-              <p className="text-gray-500 mb-4">Impossible de charger ton profil. Vérifie que la table users existe dans Supabase.</p>
-              <p className="text-xs text-red-500">{insertError.message}</p>
-              <form action="/api/auth/signout" method="POST" className="mt-4">
-                <button className="px-4 py-2 bg-gray-200 rounded-lg text-sm">Se déconnecter</button>
-              </form>
-            </div>
-          </div>
-        </ToastProvider>
-      )
-    }
-
-    profile = newProfile
+    profile = data
+  } catch (e) {
+    console.error('Layout profile fetch error:', e)
   }
 
+  // Si le profil n'existe pas, le créer
   if (!profile) {
-    redirect('/login')
+    try {
+      const { data: newProfile } = await adminClient
+        .from('users')
+        .insert({
+          id: user.id,
+          email: user.email!,
+          full_name: user.email!.split('@')[0],
+          role: 'admin',
+        })
+        .select()
+        .single()
+      profile = newProfile
+    } catch (e) {
+      console.error('Layout profile create error:', e)
+    }
+  }
+
+  // Fallback si profil toujours null — afficher une page d'erreur (PAS redirect)
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-sm border p-8 max-w-md text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Configuration requise</h1>
+          <p className="text-gray-500 mb-4">
+            Le profil utilisateur n&apos;a pas pu être créé. Vérifie que les tables existent dans Supabase
+            et que le schéma SQL a bien été exécuté.
+          </p>
+          <p className="text-xs text-gray-400 mb-6">User ID: {user.id} / Email: {user.email}</p>
+          <form action="/api/auth/signout" method="POST">
+            <button className="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200">
+              Se déconnecter
+            </button>
+          </form>
+        </div>
+      </div>
+    )
   }
 
   return (

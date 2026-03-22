@@ -8,8 +8,6 @@ interface FunnelViewProps {
     qualified: number
     links_sent: number
     calls_booked: number
-    calls_shown: number
-    closes: number
   }
 }
 
@@ -19,8 +17,6 @@ export function FunnelView({ totals }: FunnelViewProps) {
     { label: 'Qualifiés', value: totals.qualified },
     { label: 'Liens envoyés', value: totals.links_sent },
     { label: 'Calls bookés', value: totals.calls_booked },
-    { label: 'Calls honorés', value: totals.calls_shown },
-    { label: 'Closes', value: totals.closes },
   ]
 
   return (
@@ -36,7 +32,7 @@ export function FunnelView({ totals }: FunnelViewProps) {
                   {rate}%
                 </Badge>
               )}
-              <div className="flex flex-col items-center min-w-[100px] px-3 py-3 bg-gray-50 rounded-lg">
+              <div className="flex flex-col items-center min-w-[110px] px-4 py-3 bg-gray-50 rounded-lg">
                 <span className="text-2xl font-bold text-gray-900">{step.value}</span>
                 <span className="text-xs text-gray-500 mt-1 text-center">{step.label}</span>
               </div>

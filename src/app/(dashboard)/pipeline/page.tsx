@@ -3,7 +3,6 @@ import { format, startOfWeek, endOfWeek, subWeeks, eachDayOfInterval, addDays } 
 import { fr } from 'date-fns/locale'
 import { FunnelView } from '@/components/pipeline/funnel-view'
 import { WeeklyLogsTable } from '@/components/pipeline/weekly-logs-table'
-import { NoCloseReasons } from '@/components/pipeline/no-close-reasons'
 import { PipelineTrend } from '@/components/pipeline/pipeline-trend'
 import { WeekNavigator } from '@/components/pipeline/week-navigator'
 
@@ -20,7 +19,6 @@ export default async function PipelinePage({ searchParams }: PageProps) {
 
   const supabase = createClient()
 
-  // Logs de la semaine
   const { data: logs } = await supabase
     .from('setter_logs')
     .select('*')
@@ -30,47 +28,36 @@ export default async function PipelinePage({ searchParams }: PageProps) {
 
   const weekLogs = logs || []
 
-  // Totaux
   const totals = weekLogs.reduce(
     (acc, log) => ({
       conversations: acc.conversations + log.conversations,
       qualified: acc.qualified + log.qualified,
       links_sent: acc.links_sent + log.links_sent,
       calls_booked: acc.calls_booked + log.calls_booked,
-      calls_shown: acc.calls_shown + log.calls_shown,
-      closes: acc.closes + log.closes,
-      no_close_budget: acc.no_close_budget + log.no_close_budget,
-      no_close_think: acc.no_close_think + log.no_close_think,
-      no_close_trust: acc.no_close_trust + log.no_close_trust,
-      no_close_competitor: acc.no_close_competitor + log.no_close_competitor,
     }),
-    {
-      conversations: 0, qualified: 0, links_sent: 0, calls_booked: 0,
-      calls_shown: 0, closes: 0, no_close_budget: 0, no_close_think: 0,
-      no_close_trust: 0, no_close_competitor: 0,
-    }
+    { conversations: 0, qualified: 0, links_sent: 0, calls_booked: 0 }
   )
 
-  // Données tendance 4 semaines
+  // Tendance 4 semaines
   const trendData = []
   for (let i = 3; i >= 0; i--) {
     const ws = startOfWeek(subWeeks(now, i), { weekStartsOn: 1 })
     const we = endOfWeek(subWeeks(now, i), { weekStartsOn: 1 })
     const { data: wLogs } = await supabase
       .from('setter_logs')
-      .select('closes, links_sent')
+      .select('calls_booked, links_sent')
       .gte('date', format(ws, 'yyyy-MM-dd'))
       .lte('date', format(we, 'yyyy-MM-dd'))
 
     const wData = wLogs || []
     trendData.push({
       week: format(ws, 'dd/MM', { locale: fr }),
-      closes: wData.reduce((s, l) => s + l.closes, 0),
+      booked: wData.reduce((s, l) => s + l.calls_booked, 0),
       links: wData.reduce((s, l) => s + l.links_sent, 0),
     })
   }
 
-  // Jours de la semaine avec statut log
+  // Jours de la semaine
   const days = eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) })
   const dayLogs = days.map((day) => {
     const dateStr = format(day, 'yyyy-MM-dd')
@@ -97,11 +84,7 @@ export default async function PipelinePage({ searchParams }: PageProps) {
 
       <FunnelView totals={totals} />
       <WeeklyLogsTable dayLogs={dayLogs} totals={totals} />
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <NoCloseReasons totals={totals} />
-        <PipelineTrend data={trendData} />
-      </div>
+      <PipelineTrend data={trendData} />
     </div>
   )
 }
