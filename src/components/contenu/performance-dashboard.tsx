@@ -1,0 +1,310 @@
+'use client'
+
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { PeriodSelector, type PeriodKey } from './period-selector'
+import { KpiGrid } from './kpi-grid'
+import { PostsTable } from './posts-table'
+import { TemporalChart, PostPerformanceChart, FormatPieChart } from './performance-charts'
+import { FollowersInsights } from './followers-insights'
+import type { IGMedia, IGAccountStats, IGAccountInsightsDay, IGMediaInsights } from '@/lib/services/instagram'
+
+function daysAgo(n: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() - n)
+  return d.toISOString().split('T')[0]
+}
+
+function formatFR(n: number): string {
+  return n.toLocaleString('fr-FR')
+}
+
+export function PerformanceDashboard() {
+  const [period, setPeriod] = useState<PeriodKey>('7d')
+  const [customStart, setCustomStart] = useState(daysAgo(7))
+  const [customEnd, setCustomEnd] = useState(daysAgo(0))
+  const [compareEnabled, setCompareEnabled] = useState(false)
+
+  const [accountStats, setAccountStats] = useState<IGAccountStats | null>(null)
+  const [allMedia, setAllMedia] = useState<IGMedia[]>([])
+  const [insights, setInsights] = useState<Record<string, IGMediaInsights>>({})
+  const [accountInsights, setAccountInsights] = useState<IGAccountInsightsDay[]>([])
+  const [prevAccountInsights, setPrevAccountInsights] = useState<IGAccountInsightsDay[]>([])
+  const [tokenExpired, setTokenExpired] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  // Calculer les dates de la période
+  const { since, until, prevSince, prevUntil } = useMemo(() => {
+    let days = 7
+    let s = '', u = daysAgo(0)
+    switch (period) {
+      case 'today': days = 1; break
+      case '3d': days = 3; break
+      case '7d': days = 7; break
+      case '14d': days = 14; break
+      case '30d': days = 30; break
+      case 'custom': {
+        s = customStart
+        u = customEnd
+        days = Math.max(1, Math.round((new Date(u).getTime() - new Date(s).getTime()) / 86400000))
+        return {
+          since: s,
+          until: u,
+          prevSince: daysAgo(days * 2 + (Math.round((new Date().getTime() - new Date(u).getTime()) / 86400000))),
+          prevUntil: daysAgo(days + (Math.round((new Date().getTime() - new Date(u).getTime()) / 86400000))),
+        }
+      }
+    }
+    s = daysAgo(days)
+    return {
+      since: s,
+      until: u,
+      prevSince: daysAgo(days * 2),
+      prevUntil: daysAgo(days),
+    }
+  }, [period, customStart, customEnd])
+
+  // Charger les données de base
+  useEffect(() => {
+    setLoading(true)
+    Promise.all([
+      fetch('/api/instagram/account').then(r => r.ok ? r.json() : null),
+      fetch('/api/instagram/media').then(r => r.ok ? r.json() : null),
+    ]).then(([stats, mediaRes]) => {
+      if (!stats && !mediaRes?.data?.length) {
+        setTokenExpired(true)
+      } else {
+        setTokenExpired(false)
+      }
+      setAccountStats(stats?.error ? null : stats)
+      setAllMedia(mediaRes?.data || [])
+      setLoading(false)
+    }).catch(() => {
+      setTokenExpired(true)
+      setLoading(false)
+    })
+  }, [])
+
+  // Batch fetch insights pour tous les posts (groupes de 5)
+  const fetchAllInsights = useCallback(async (media: IGMedia[]) => {
+    const batches: IGMedia[][] = []
+    for (let i = 0; i < media.length; i += 5) {
+      batches.push(media.slice(i, i + 5))
+    }
+    for (const batch of batches) {
+      const results = await Promise.all(
+        batch.map(async (post) => {
+          try {
+            const res = await fetch(`/api/instagram/media/${post.id}/insights?media_type=${post.media_type}`)
+            if (!res.ok) return { id: post.id, data: {} as IGMediaInsights }
+            const data = await res.json()
+            return { id: post.id, data: data as IGMediaInsights }
+          } catch {
+            return { id: post.id, data: {} as IGMediaInsights }
+          }
+        })
+      )
+      setInsights(prev => {
+        const next = { ...prev }
+        for (const r of results) {
+          next[r.id] = r.data
+        }
+        return next
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    if (allMedia.length > 0) {
+      fetchAllInsights(allMedia)
+    }
+  }, [allMedia, fetchAllInsights])
+
+  // Charger les account insights quand la période change
+  useEffect(() => {
+    fetch(`/api/instagram/account?since=${since}&until=${until}`)
+      .then(r => r.ok ? r.json() : { data: [] })
+      .then(res => setAccountInsights(res.data || []))
+      .catch(() => setAccountInsights([]))
+
+    if (compareEnabled) {
+      fetch(`/api/instagram/account?since=${prevSince}&until=${prevUntil}`)
+        .then(r => r.ok ? r.json() : { data: [] })
+        .then(res => setPrevAccountInsights(res.data || []))
+        .catch(() => setPrevAccountInsights([]))
+    }
+  }, [since, until, prevSince, prevUntil, compareEnabled])
+
+  // Filtrer les posts par période
+  const filteredMedia = useMemo(() => {
+    const start = new Date(since)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(until)
+    end.setHours(23, 59, 59, 999)
+    return allMedia.filter(m => {
+      const d = new Date(m.timestamp)
+      return d >= start && d <= end
+    })
+  }, [allMedia, since, until])
+
+  // Posts de la période précédente
+  const prevFilteredMedia = useMemo(() => {
+    const start = new Date(prevSince)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(prevUntil)
+    end.setHours(23, 59, 59, 999)
+    return allMedia.filter(m => {
+      const d = new Date(m.timestamp)
+      return d >= start && d <= end
+    })
+  }, [allMedia, prevSince, prevUntil])
+
+  // Calculs KPIs
+  const totalImpressions = useMemo(() =>
+    filteredMedia.reduce((s, p) => s + (insights[p.id]?.impressions || 0), 0), [filteredMedia, insights])
+  const totalReach = useMemo(() =>
+    filteredMedia.reduce((s, p) => s + (insights[p.id]?.reach || 0), 0), [filteredMedia, insights])
+  const totalLikes = useMemo(() =>
+    filteredMedia.reduce((s, p) => s + (p.like_count || 0), 0), [filteredMedia])
+  const totalComments = useMemo(() =>
+    filteredMedia.reduce((s, p) => s + (p.comments_count || 0), 0), [filteredMedia])
+
+  // Période précédente pour trends
+  const prevImpressions = prevFilteredMedia.reduce((s, p) => s + (insights[p.id]?.impressions || 0), 0)
+  const prevReach = prevFilteredMedia.reduce((s, p) => s + (insights[p.id]?.reach || 0), 0)
+  const prevLikes = prevFilteredMedia.reduce((s, p) => s + (p.like_count || 0), 0)
+  const prevComments = prevFilteredMedia.reduce((s, p) => s + (p.comments_count || 0), 0)
+
+  function trend(curr: number, prev: number): number | null {
+    if (prev === 0) return null
+    return Math.round(((curr - prev) / prev) * 100)
+  }
+
+  // Meilleur post
+  const bestPost = useMemo(() => {
+    if (filteredMedia.length === 0) return null
+    const best = filteredMedia.reduce((b, p) => {
+      const isVideo = p.media_type === 'REEL' || p.media_type === 'VIDEO'
+      const views = isVideo ? (insights[p.id]?.video_views ?? insights[p.id]?.plays ?? 0) : (insights[p.id]?.impressions ?? 0)
+      const bIsVideo = b.media_type === 'REEL' || b.media_type === 'VIDEO'
+      const bViews = bIsVideo ? (insights[b.id]?.video_views ?? insights[b.id]?.plays ?? 0) : (insights[b.id]?.impressions ?? 0)
+      return views > bViews ? p : b
+    }, filteredMedia[0])
+    const isVideo = best.media_type === 'REEL' || best.media_type === 'VIDEO'
+    return {
+      id: best.id,
+      thumbnail: best.thumbnail_url || best.media_url,
+      caption: best.caption || best.id,
+      views: isVideo ? (insights[best.id]?.video_views ?? insights[best.id]?.plays ?? 0) : (insights[best.id]?.impressions ?? 0),
+      likes: best.like_count || 0,
+    }
+  }, [filteredMedia, insights])
+
+  const kpiItems = [
+    {
+      title: 'Abonnés',
+      value: accountStats?.followers_count ? formatFR(accountStats.followers_count) : '-',
+      subtitle: accountStats ? `@${accountStats.username}` : undefined,
+      trend: null,
+    },
+    {
+      title: 'Posts publiés',
+      value: filteredMedia.length,
+      subtitle: 'sur période',
+      trend: trend(filteredMedia.length, prevFilteredMedia.length),
+    },
+    {
+      title: 'Impressions',
+      value: formatFR(totalImpressions),
+      subtitle: 'sur période',
+      trend: trend(totalImpressions, prevImpressions),
+    },
+    {
+      title: 'Reach',
+      value: formatFR(totalReach),
+      subtitle: 'sur période',
+      trend: trend(totalReach, prevReach),
+    },
+    {
+      title: 'Likes',
+      value: formatFR(totalLikes),
+      subtitle: 'sur période',
+      trend: trend(totalLikes, prevLikes),
+    },
+    {
+      title: 'Commentaires',
+      value: formatFR(totalComments),
+      subtitle: 'sur période',
+      trend: trend(totalComments, prevComments),
+    },
+  ]
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="h-10 bg-gray-100 rounded-lg animate-pulse" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />
+          ))}
+        </div>
+        <div className="h-96 bg-gray-100 rounded-xl animate-pulse" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {tokenExpired && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <span className="text-sm text-red-800">
+            Token Instagram expiré ou invalide. Contacte l&apos;admin pour le renouveler.
+          </span>
+        </div>
+      )}
+
+      <div>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">Performance Instagram</h1>
+          {!tokenExpired && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+              <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+              Live
+            </span>
+          )}
+        </div>
+      </div>
+
+      <PeriodSelector
+        selected={period}
+        onSelect={setPeriod}
+        customStart={customStart}
+        customEnd={customEnd}
+        onCustomStartChange={setCustomStart}
+        onCustomEndChange={setCustomEnd}
+        compareEnabled={compareEnabled}
+        onCompareToggle={() => setCompareEnabled(!compareEnabled)}
+      />
+
+      <KpiGrid items={kpiItems} bestPost={bestPost} />
+
+      <PostsTable media={filteredMedia} bestPostId={bestPost?.id} insights={insights} />
+
+      <TemporalChart
+        data={accountInsights}
+        prevData={compareEnabled ? prevAccountInsights : undefined}
+        compareEnabled={compareEnabled}
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <PostPerformanceChart media={filteredMedia} insights={insights} />
+        <FormatPieChart media={filteredMedia} insights={insights} />
+      </div>
+
+      <FollowersInsights
+        data={accountInsights}
+        prevData={compareEnabled ? prevAccountInsights : undefined}
+        compareEnabled={compareEnabled}
+      />
+    </div>
+  )
+}

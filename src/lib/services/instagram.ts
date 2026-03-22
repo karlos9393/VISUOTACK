@@ -27,6 +27,7 @@ export interface IGMedia {
 
 export interface IGInsightValue {
   value: number
+  end_time?: string
 }
 
 export interface IGInsight {
@@ -40,6 +41,14 @@ export interface IGMediaInsights {
   saved?: number
   video_views?: number
   plays?: number
+  shares?: number
+}
+
+export interface IGAccountInsightsDay {
+  date: string
+  impressions: number
+  reach: number
+  follower_count: number
 }
 
 // Stats du compte (followers, nb posts)
@@ -77,15 +86,16 @@ export async function getMediaList(): Promise<IGMedia[]> {
   }
 }
 
-// Insights d'un post (vues, reach, saves)
+// Insights d'un post (vues, reach, saves, shares)
 export async function getMediaInsights(mediaId: string, mediaType: string): Promise<IGMediaInsights> {
   const token = getToken()
   if (!token) return {}
 
   try {
-    const metrics = mediaType === 'VIDEO' || mediaType === 'REEL'
-      ? 'impressions,reach,saved,video_views,plays'
-      : 'impressions,reach,saved'
+    const isVideo = mediaType === 'VIDEO' || mediaType === 'REEL'
+    const metrics = isVideo
+      ? 'impressions,reach,saved,video_views,plays,shares'
+      : 'impressions,reach,saved,shares'
 
     const res = await fetch(
       `${BASE_URL}/${mediaId}/insights?metric=${metrics}&access_token=${token}`
@@ -102,6 +112,7 @@ export async function getMediaInsights(mediaId: string, mediaType: string): Prom
         case 'saved': insights.saved = value; break
         case 'video_views': insights.video_views = value; break
         case 'plays': insights.plays = value; break
+        case 'shares': insights.shares = value; break
       }
     }
     return insights
@@ -110,20 +121,39 @@ export async function getMediaInsights(mediaId: string, mediaType: string): Prom
   }
 }
 
-// Insights du compte sur une période
-export async function getAccountInsights(since: string, until: string) {
+// Insights du compte sur une période (données par jour)
+export async function getAccountInsights(since: string, until: string): Promise<IGAccountInsightsDay[]> {
   const token = getToken()
-  if (!token) return null
+  if (!token) return []
 
   try {
     const res = await fetch(
       `${BASE_URL}/${IG_ACCOUNT_ID}/insights?metric=follower_count,impressions,reach&period=day&since=${since}&until=${until}&access_token=${token}`,
       { next: { revalidate: 3600 } }
     )
-    if (!res.ok) return null
-    return res.json()
+    if (!res.ok) return []
+    const json = await res.json()
+
+    // Transformer les données brutes en jours
+    const metrics: Record<string, Record<string, number>> = {}
+    for (const metric of json.data || []) {
+      for (const v of metric.values || []) {
+        const date = v.end_time?.split('T')[0] || ''
+        if (!metrics[date]) metrics[date] = {}
+        metrics[date][metric.name] = v.value ?? 0
+      }
+    }
+
+    return Object.entries(metrics)
+      .map(([date, vals]) => ({
+        date,
+        impressions: vals.impressions || 0,
+        reach: vals.reach || 0,
+        follower_count: vals.follower_count || 0,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date))
   } catch {
-    return null
+    return []
   }
 }
 
