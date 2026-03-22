@@ -88,27 +88,29 @@ export default async function CalendrierPage({ searchParams }: PageProps) {
       />
 
       {/* Section Google Drive */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Ressources contenu</h2>
-          <a
-            href="https://drive.google.com/drive/folders/1klZUPPvyGD1KpxmeLrsfeMQVUUXmAZhl"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
-          >
-            Ouvrir dans Drive
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+      <div className="rounded-xl border border-gray-200 bg-gradient-to-br from-white to-gray-50 p-6">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5 text-yellow-600" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M7.71 3.5L1.15 15l4.58 6h11.84l4.58-6L15.59 3.5H7.71zM14 3.5l6.85 11.5H14l-6.85-11.5H14zm-7.71 0L13.15 15H6.29L1.15 3.5h5.14zm-.15 12.5h11.72l-3.58 5H9.72l-3.58-5z"/>
             </svg>
-          </a>
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Ressources contenu</h2>
+            <p className="text-sm text-gray-500">Visuels, templates et fichiers de production</p>
+          </div>
         </div>
-        {/* Le dossier Drive doit être partagé "Toute personne avec le lien peut voir" pour que l'iframe fonctionne */}
-        <iframe
-          src="https://drive.google.com/embeddedfolderview?id=1klZUPPvyGD1KpxmeLrsfeMQVUUXmAZhl#list"
-          style={{ width: '100%', height: '500px', border: 'none', borderRadius: '12px' }}
-          title="Drive contenu CYGA"
-        />
+        <a
+          href="https://drive.google.com/drive/folders/1klZUPPvyGD1KpxmeLrsfeMQVUUXmAZhl"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+          Ouvrir le Drive
+        </a>
       </div>
     </div>
   )
