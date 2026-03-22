@@ -18,6 +18,17 @@ function formatFR(n: number): string {
   return n.toLocaleString('fr-FR')
 }
 
+function filterByPeriod(media: IGMedia[], since: string, until: string): IGMedia[] {
+  const start = new Date(since)
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(until)
+  end.setHours(23, 59, 59, 999)
+  return media.filter(m => {
+    const d = new Date(m.timestamp)
+    return d >= start && d <= end
+  })
+}
+
 interface PerformanceDashboardProps {
   initialAccountStats: IGAccountStats | null
   initialMedia: IGMedia[]
@@ -29,12 +40,11 @@ export function PerformanceDashboard({
   initialMedia,
   initialTokenExpired,
 }: PerformanceDashboardProps) {
-  const [period, setPeriod] = useState<PeriodKey>('7d')
-  const [customStart, setCustomStart] = useState(daysAgo(7))
+  const [period, setPeriod] = useState<PeriodKey>('30d')
+  const [customStart, setCustomStart] = useState(daysAgo(30))
   const [customEnd, setCustomEnd] = useState(daysAgo(0))
   const [compareEnabled, setCompareEnabled] = useState(false)
 
-  // Données initiales chargées côté serveur
   const accountStats = initialAccountStats
   const allMedia = initialMedia
   const tokenExpired = initialTokenExpired
@@ -45,7 +55,7 @@ export function PerformanceDashboard({
 
   // Calculer les dates de la période
   const { since, until, prevSince, prevUntil } = useMemo(() => {
-    let days = 7
+    let days = 30
     let s = '', u = daysAgo(0)
     switch (period) {
       case 'today': days = 1; break
@@ -124,58 +134,37 @@ export function PerformanceDashboard({
     }
   }, [since, until, prevSince, prevUntil, compareEnabled])
 
-  // Filtrer les posts par période
-  const filteredMedia = useMemo(() => {
-    const start = new Date(since)
-    start.setHours(0, 0, 0, 0)
-    const end = new Date(until)
-    end.setHours(23, 59, 59, 999)
-    return allMedia.filter(m => {
-      const d = new Date(m.timestamp)
-      return d >= start && d <= end
-    })
-  }, [allMedia, since, until])
+  // Posts filtrés par période (pour KPIs et graphiques)
+  const periodMedia = useMemo(() => filterByPeriod(allMedia, since, until), [allMedia, since, until])
+  const prevPeriodMedia = useMemo(() => filterByPeriod(allMedia, prevSince, prevUntil), [allMedia, prevSince, prevUntil])
 
-  // Posts de la période précédente
-  const prevFilteredMedia = useMemo(() => {
-    const start = new Date(prevSince)
-    start.setHours(0, 0, 0, 0)
-    const end = new Date(prevUntil)
-    end.setHours(23, 59, 59, 999)
-    return allMedia.filter(m => {
-      const d = new Date(m.timestamp)
-      return d >= start && d <= end
-    })
-  }, [allMedia, prevSince, prevUntil])
-
-  // Calculs KPIs
+  // Calculs KPIs — basés sur la période
   const totalImpressions = useMemo(() =>
-    filteredMedia.reduce((s, p) => s + (insights[p.id]?.impressions || 0), 0), [filteredMedia, insights])
+    periodMedia.reduce((s, p) => s + (insights[p.id]?.impressions || 0), 0), [periodMedia, insights])
   const totalReach = useMemo(() =>
-    filteredMedia.reduce((s, p) => s + (insights[p.id]?.reach || 0), 0), [filteredMedia, insights])
+    periodMedia.reduce((s, p) => s + (insights[p.id]?.reach || 0), 0), [periodMedia, insights])
   const totalLikes = useMemo(() =>
-    filteredMedia.reduce((s, p) => s + (p.like_count || 0), 0), [filteredMedia])
+    periodMedia.reduce((s, p) => s + (p.like_count || 0), 0), [periodMedia])
   const totalComments = useMemo(() =>
-    filteredMedia.reduce((s, p) => s + (p.comments_count || 0), 0), [filteredMedia])
+    periodMedia.reduce((s, p) => s + (p.comments_count || 0), 0), [periodMedia])
 
   // Période précédente pour trends
-  const prevImpressions = prevFilteredMedia.reduce((s, p) => s + (insights[p.id]?.impressions || 0), 0)
-  const prevReach = prevFilteredMedia.reduce((s, p) => s + (insights[p.id]?.reach || 0), 0)
-  const prevLikes = prevFilteredMedia.reduce((s, p) => s + (p.like_count || 0), 0)
-  const prevComments = prevFilteredMedia.reduce((s, p) => s + (p.comments_count || 0), 0)
+  const prevImpressions = prevPeriodMedia.reduce((s, p) => s + (insights[p.id]?.impressions || 0), 0)
+  const prevReach = prevPeriodMedia.reduce((s, p) => s + (insights[p.id]?.reach || 0), 0)
+  const prevLikes = prevPeriodMedia.reduce((s, p) => s + (p.like_count || 0), 0)
+  const prevComments = prevPeriodMedia.reduce((s, p) => s + (p.comments_count || 0), 0)
 
   function trend(curr: number, prev: number): number | null {
     if (prev === 0) return null
     return Math.round(((curr - prev) / prev) * 100)
   }
 
-  // Meilleur post (basé sur likes directement, pas sur insights qui peuvent ne pas être chargés)
+  // Meilleur post de la période (basé sur likes)
   const bestPost = useMemo(() => {
-    if (filteredMedia.length === 0) return null
-    const best = filteredMedia.reduce((b, p) =>
+    if (periodMedia.length === 0) return null
+    const best = periodMedia.reduce((b, p) =>
       (p.like_count || 0) > (b.like_count || 0) ? p : b
-    , filteredMedia[0])
-
+    , periodMedia[0])
     return {
       id: best.id,
       thumbnail: best.thumbnail_url || best.media_url,
@@ -183,7 +172,7 @@ export function PerformanceDashboard({
       views: best.like_count || 0,
       likes: best.like_count || 0,
     }
-  }, [filteredMedia])
+  }, [periodMedia])
 
   const kpiItems = [
     {
@@ -194,9 +183,9 @@ export function PerformanceDashboard({
     },
     {
       title: 'Posts publiés',
-      value: filteredMedia.length,
+      value: periodMedia.length,
       subtitle: 'sur période',
-      trend: trend(filteredMedia.length, prevFilteredMedia.length),
+      trend: trend(periodMedia.length, prevPeriodMedia.length),
     },
     {
       title: 'Impressions',
@@ -244,9 +233,9 @@ export function PerformanceDashboard({
             </span>
           )}
         </div>
-        {allMedia.length > 0 && (
-          <p className="text-xs text-gray-400 mt-1">{allMedia.length} posts chargés — {filteredMedia.length} sur la période</p>
-        )}
+        <p className="text-xs text-gray-400 mt-1">
+          {allMedia.length} posts chargés — {periodMedia.length} sur la période sélectionnée
+        </p>
       </div>
 
       <PeriodSelector
@@ -262,7 +251,8 @@ export function PerformanceDashboard({
 
       <KpiGrid items={kpiItems} bestPost={bestPost} />
 
-      <PostsTable media={filteredMedia} bestPostId={bestPost?.id} insights={insights} />
+      {/* Tableau : montre TOUS les posts, pas seulement la période */}
+      <PostsTable media={allMedia} bestPostId={bestPost?.id} insights={insights} />
 
       <TemporalChart
         data={accountInsights}
@@ -271,8 +261,8 @@ export function PerformanceDashboard({
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PostPerformanceChart media={filteredMedia} insights={insights} />
-        <FormatPieChart media={filteredMedia} insights={insights} />
+        <PostPerformanceChart media={periodMedia} insights={insights} />
+        <FormatPieChart media={periodMedia} insights={insights} />
       </div>
 
       <FollowersInsights
