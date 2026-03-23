@@ -25,10 +25,18 @@ export function SetterSessionForm() {
   })
 
   const [isUpdate, setIsUpdate] = useState(false)
+  const [submitted, setSubmitted] = useState<{
+    date: string
+    conversations: number
+    qualified: number
+    links_sent: number
+    calls_booked: number
+  } | null>(null)
 
   useEffect(() => {
     async function loadExisting() {
       setLoadingData(true)
+      setSubmitted(null)
       const log = await getSetterLogForDate(date)
       if (log) {
         setValues({
@@ -62,6 +70,13 @@ export function SetterSessionForm() {
 
     toast(`Setting du ${formatDate(date)} enregistré ✓`, 'success')
     setIsUpdate(true)
+    setSubmitted({
+      date,
+      conversations: Number(formData.get('conversations') || 0),
+      qualified: Number(formData.get('qualified') || 0),
+      links_sent: Number(formData.get('links_sent') || 0),
+      calls_booked: Number(formData.get('calls_booked') || 0),
+    })
   }
 
   return (
@@ -140,6 +155,20 @@ export function SetterSessionForm() {
               {loading ? 'Enregistrement...' : isUpdate ? 'Mettre à jour le setting' : 'Enregistrer le setting'}
             </Button>
           </form>
+        )}
+
+        {submitted && (
+          <div className="mt-4 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+            <p className="text-sm text-green-800 font-medium">
+              Setting du {formatDate(submitted.date, 'd MMMM')} enregistr&eacute;
+            </p>
+            <p className="text-xs text-green-700 mt-1">
+              {submitted.conversations} conversations &middot; {submitted.qualified} qualifi&eacute;s &middot; {submitted.links_sent} liens &middot; {submitted.calls_booked} calls book&eacute;s
+            </p>
+            <p className="text-xs text-green-600 mt-1 opacity-80">
+              Visible dans la Pipeline
+            </p>
+          </div>
         )}
       </Card>
     </div>

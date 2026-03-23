@@ -19,15 +19,17 @@ interface SetterLog {
   links_sent: number
   calls_booked: number
   notes?: string | null
+  users?: { full_name: string | null; email: string | null } | null
   [key: string]: unknown
 }
 
 interface PipelineViewProps {
   allLogs: SetterLog[]
   hasTodayLog: boolean
+  todayFilledBy?: string[]
 }
 
-export function PipelineView({ allLogs, hasTodayLog }: PipelineViewProps) {
+export function PipelineView({ allLogs, hasTodayLog, todayFilledBy = [] }: PipelineViewProps) {
   const [dateRange, setDateRange] = useState<DateRange>({
     start: startOfDay(subDays(new Date(), 6)),
     end: endOfDay(new Date()),
@@ -73,6 +75,7 @@ export function PipelineView({ allLogs, hasTodayLog }: PipelineViewProps) {
         calls_booked: log?.calls_booked ?? 0,
         notes: log?.notes || '',
         filled: !!log,
+        filled_by: log?.users?.full_name || null,
         isFuture: isAfter(day, now),
       }
     })
@@ -105,7 +108,7 @@ export function PipelineView({ allLogs, hasTodayLog }: PipelineViewProps) {
       </div>
 
       {/* Setter alert */}
-      <SetterAlert hasTodayLog={hasTodayLog} />
+      <SetterAlert hasTodayLog={hasTodayLog} filledBy={todayFilledBy} />
 
       {/* Funnel */}
       <FunnelBar totals={totals} />

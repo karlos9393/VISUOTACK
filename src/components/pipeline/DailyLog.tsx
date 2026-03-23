@@ -12,6 +12,7 @@ export interface DayEntry {
   calls_booked: number
   notes?: string
   filled: boolean
+  filled_by?: string | null
   isFuture: boolean
 }
 
@@ -74,6 +75,20 @@ export function DailyLog({ days, onEdit }: DailyLogProps) {
                   {day.links_sent}
                 </span>
               </div>
+            </div>
+
+            {/* Rempli par */}
+            <div className="flex-shrink-0 w-28 hidden sm:flex items-center">
+              {day.filled_by ? (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-medium flex items-center justify-center flex-shrink-0">
+                    {day.filled_by.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)}
+                  </div>
+                  <span className="text-xs text-gray-500 truncate">{day.filled_by}</span>
+                </div>
+              ) : day.filled ? (
+                <span className="text-xs text-gray-400">&mdash;</span>
+              ) : null}
             </div>
 
             <div className="flex-shrink-0 w-24 flex justify-end">

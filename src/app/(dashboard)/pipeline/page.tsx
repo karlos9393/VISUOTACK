@@ -13,18 +13,22 @@ export default async function PipelinePage() {
 
   const { data: logs } = await supabase
     .from('setter_logs')
-    .select('*')
+    .select('*, users(full_name, email)')
     .gte('date', since)
     .order('date', { ascending: false })
 
-  // Vérifier si le setter a rempli aujourd'hui
+  // Vérifier qui a rempli aujourd'hui
   const todayStr = format(now, 'yyyy-MM-dd')
-  const hasTodayLog = (logs || []).some((l) => l.date === todayStr)
+  const todayLogs = (logs || []).filter((l: any) => l.date === todayStr)
+  const todayFilledBy = todayLogs
+    .map((l: any) => l.users?.full_name)
+    .filter(Boolean) as string[]
 
   return (
     <PipelineView
       allLogs={logs || []}
-      hasTodayLog={hasTodayLog}
+      hasTodayLog={todayLogs.length > 0}
+      todayFilledBy={todayFilledBy}
     />
   )
 }

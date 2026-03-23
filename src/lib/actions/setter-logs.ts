@@ -89,6 +89,7 @@ export async function updateSetterLogInline(logDate: string, formData: FormData)
       links_sent: Number(formData.get('links_sent') || 0),
       calls_booked: Number(formData.get('calls_booked') || 0),
     })
+    .eq('user_id', user.id)
     .eq('date', logDate)
 
   if (error) return { error: error.message }
