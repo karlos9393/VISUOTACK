@@ -1,5 +1,5 @@
 const IG_ACCOUNT_ID = process.env.META_INSTAGRAM_ACCOUNT_ID
-const BASE_URL = 'https://graph.facebook.com/v19.0'
+const BASE_URL = 'https://graph.facebook.com/v22.0'
 
 function getToken(): string {
   return process.env.META_INSTAGRAM_ACCESS_TOKEN || ''
@@ -96,16 +96,15 @@ export async function getMediaInsights(mediaId: string, mediaType: string): Prom
   if (!token) return {}
 
   try {
-    // Métriques selon le type de media
-    // plays = nombre de lectures (métrique "vues" correcte pour REEL/VIDEO en 2024+)
-    // impressions = affichages (métrique "vues" pour IMAGE/CAROUSEL)
+    // Métriques selon le type de media (v22.0+)
+    // plays est remplacé par ig_reels_video_view_total_count depuis v22.0
     let metrics: string
     if (mediaType === 'VIDEO' || mediaType === 'REEL') {
-      metrics = 'plays,saved,comments,likes,shares,follows'
+      metrics = 'ig_reels_video_view_total_count,saved,likes,comments,shares,reach'
     } else if (mediaType === 'CAROUSEL_ALBUM') {
-      metrics = 'impressions,saved,comments,likes,shares,follows'
+      metrics = 'impressions,saved,likes,comments,shares,reach'
     } else {
-      metrics = 'impressions,saved,comments,likes,shares,follows'
+      metrics = 'impressions,saved,likes,comments,shares,reach'
     }
 
     const url = `${BASE_URL}/${mediaId}/insights?metric=${metrics}&access_token=${token}`
@@ -137,14 +136,14 @@ export async function getMediaInsights(mediaId: string, mediaType: string): Prom
         case 'saved': insights.saved = value; break
         case 'video_views': insights.video_views = value; break
         case 'plays': insights.plays = value; break
+        case 'ig_reels_video_view_total_count': insights.plays = value; break
         case 'shares': insights.shares = value; break
-        case 'follows': insights.follows = value; break
         case 'likes': insights.likes = value; break
         case 'comments': insights.comments = value; break
       }
     }
 
-    // Alias : "plays" devient "views" pour notre interface, sinon "impressions"
+    // Alias : vues = plays (vidéos) ou impressions (images)
     if (insights.plays !== undefined) {
       insights.views = insights.plays
     } else if (insights.impressions !== undefined) {

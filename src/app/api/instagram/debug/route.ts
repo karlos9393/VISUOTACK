@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-const BASE_URL = 'https://graph.facebook.com/v19.0'
+const BASE_URL = 'https://graph.facebook.com/v22.0'
 
 export async function GET() {
   const supabase = createClient()
@@ -40,28 +40,22 @@ export async function GET() {
 
       results.testPost = { id: postId, media_type: mediaType, caption: (post.caption || '').slice(0, 50) }
 
-      // 2) Tester les insights AVEC period=lifetime
-      const metricsVideo = 'plays,saved,comments,likes,shares,follows'
-      const metricsImage = 'impressions,saved,comments,likes,shares,follows'
+      // 2) Tester avec les nouvelles métriques v22.0+
+      const metricsVideo = 'ig_reels_video_view_total_count,saved,likes,comments,shares,reach'
+      const metricsImage = 'impressions,saved,likes,comments,shares,reach'
       const metrics = (mediaType === 'VIDEO' || mediaType === 'REEL') ? metricsVideo : metricsImage
 
-      const urlWithPeriod = `${BASE_URL}/${postId}/insights?metric=${metrics}&period=lifetime&access_token=${token}`
-      const res1 = await fetch(urlWithPeriod, { cache: 'no-store' })
+      const urlNew = `${BASE_URL}/${postId}/insights?metric=${metrics}&access_token=${token}`
+      const res1 = await fetch(urlNew, { cache: 'no-store' })
       const body1 = await res1.json()
-      results.withPeriodLifetime = { status: res1.status, body: body1 }
+      results.newMetrics = { status: res1.status, body: body1 }
 
-      // 3) Tester les insights SANS period
-      const urlWithout = `${BASE_URL}/${postId}/insights?metric=${metrics}&access_token=${token}`
-      const res2 = await fetch(urlWithout, { cache: 'no-store' })
-      const body2 = await res2.json()
-      results.withoutPeriod = { status: res2.status, body: body2 }
-
-      // 4) Tester avec métriques minimales (juste plays ou impressions)
-      const minMetric = (mediaType === 'VIDEO' || mediaType === 'REEL') ? 'plays' : 'impressions'
+      // 3) Tester juste ig_reels_video_view_total_count seul
+      const minMetric = (mediaType === 'VIDEO' || mediaType === 'REEL') ? 'ig_reels_video_view_total_count' : 'impressions'
       const urlMin = `${BASE_URL}/${postId}/insights?metric=${minMetric}&access_token=${token}`
-      const res3 = await fetch(urlMin, { cache: 'no-store' })
-      const body3 = await res3.json()
-      results.minimalMetric = { metric: minMetric, status: res3.status, body: body3 }
+      const res2 = await fetch(urlMin, { cache: 'no-store' })
+      const body2 = await res2.json()
+      results.minimalMetric = { metric: minMetric, status: res2.status, body: body2 }
     }
   } catch (e) {
     results.error = String(e)
