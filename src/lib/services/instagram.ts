@@ -108,15 +108,19 @@ export async function getMediaInsights(mediaId: string, mediaType: string): Prom
       metrics = 'impressions,saved,comments,likes,shares,follows'
     }
 
-    const res = await fetch(
-      `${BASE_URL}/${mediaId}/insights?metric=${metrics}&period=lifetime&access_token=${token}`,
-      { cache: 'no-store' }
-    )
-    if (!res.ok) return {}
+    const url = `${BASE_URL}/${mediaId}/insights?metric=${metrics}&access_token=${token}`
+    const res = await fetch(url, { cache: 'no-store' })
+
+    if (!res.ok) {
+      const errorBody = await res.text()
+      console.error(`[getMediaInsights] HTTP ${res.status} for ${mediaId} (${mediaType}): ${errorBody}`)
+      return {}
+    }
+
     const data = await res.json()
 
     // Debug: voir la structure exacte retournée par l'API Meta
-    console.log(`Insights for ${mediaId} (${mediaType}):`, JSON.stringify(data, null, 2))
+    console.log(`[getMediaInsights] ${mediaId} (${mediaType}):`, JSON.stringify(data, null, 2))
 
     if (data.error) {
       console.error(`Insights error for ${mediaId}:`, data.error)
