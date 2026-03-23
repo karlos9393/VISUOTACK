@@ -19,10 +19,11 @@ export default async function PipelinePage() {
 
   // Vérifier qui a rempli aujourd'hui
   const todayStr = format(now, 'yyyy-MM-dd')
-  const todayLogs = (logs || []).filter((l: any) => l.date === todayStr)
+  const allLogs = logs || []
+  const todayLogs = allLogs.filter((l) => l.date === todayStr)
   const todayFilledBy = todayLogs
-    .map((l: any) => l.users?.full_name)
-    .filter(Boolean) as string[]
+    .map((l) => (l as { users?: { full_name?: string } }).users?.full_name)
+    .filter((n): n is string => Boolean(n))
 
   return (
     <PipelineView

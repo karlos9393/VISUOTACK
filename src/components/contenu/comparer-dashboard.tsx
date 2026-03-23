@@ -366,7 +366,7 @@ export function ComparerDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {mergedPosts.map((item, idx) => {
+                  {mergedPosts.map((item) => {
                     const { post, insights: ins, period } = item
                     const periodColor = period === 'A'
                       ? 'bg-violet-100 text-violet-700'
