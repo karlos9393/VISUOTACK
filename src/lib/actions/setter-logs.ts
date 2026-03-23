@@ -99,6 +99,24 @@ export async function updateSetterLogInline(logDate: string, formData: FormData)
   return { success: true }
 }
 
+export async function deleteSetterLog(logDate: string, logUserId: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Non authentifié' }
+
+  const { error } = await supabase
+    .from('setter_logs')
+    .delete()
+    .eq('user_id', logUserId)
+    .eq('date', logDate)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/pipeline')
+  revalidatePath('/pipeline/setting')
+  return { success: true }
+}
+
 export interface SetterStats {
   thisWeek: { conversations: number; qualified: number; links_sent: number; calls_booked: number }
   lastWeek: { conversations: number; qualified: number; links_sent: number; calls_booked: number }

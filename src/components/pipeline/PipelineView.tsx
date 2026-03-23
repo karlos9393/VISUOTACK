@@ -13,6 +13,7 @@ import { EditLogModal } from './EditLogModal'
 
 interface SetterLog {
   id?: string
+  user_id?: string
   date: string
   conversations: number
   qualified: number
@@ -75,7 +76,7 @@ export function PipelineView({ allLogs, hasTodayLog, todayFilledBy = [] }: Pipel
           date: dateStr,
           dayName,
           conversations: 0, qualified: 0, links_sent: 0, calls_booked: 0,
-          notes: '', filled: false, filled_by: null, isFuture: future,
+          notes: '', filled: false, filled_by: null, user_id: null, isFuture: future,
         })
       } else {
         dayLogs.forEach((log, i) => {
@@ -89,6 +90,7 @@ export function PipelineView({ allLogs, hasTodayLog, todayFilledBy = [] }: Pipel
             notes: log.notes || '',
             filled: true,
             filled_by: log.users?.full_name || null,
+            user_id: log.user_id || null,
             isFuture: future,
           })
         })

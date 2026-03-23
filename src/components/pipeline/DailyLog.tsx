@@ -13,6 +13,7 @@ export interface DayEntry {
   notes?: string
   filled: boolean
   filled_by?: string | null
+  user_id?: string | null
   isFuture: boolean
 }
 

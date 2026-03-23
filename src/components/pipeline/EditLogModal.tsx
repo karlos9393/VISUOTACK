@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
-import { updateSetterLogInline } from '@/lib/actions/setter-logs'
+import { updateSetterLogInline, deleteSetterLog } from '@/lib/actions/setter-logs'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
@@ -16,6 +16,7 @@ interface DayEntry {
   links_sent: number
   calls_booked: number
   notes?: string
+  user_id?: string | null
 }
 
 interface EditLogModalProps {
@@ -25,6 +26,7 @@ interface EditLogModalProps {
 
 export function EditLogModal({ day, onClose }: EditLogModalProps) {
   const [loading, setLoading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const { toast } = useToast()
 
   async function handleSave(formData: FormData) {
@@ -38,6 +40,25 @@ export function EditLogModal({ day, onClose }: EditLogModalProps) {
     }
 
     toast('Log mis à jour', 'success')
+    onClose()
+  }
+
+  async function handleDelete() {
+    if (!confirm('Supprimer ce log ? Cette action est irréversible.')) return
+    setDeleting(true)
+    const userId = day.user_id
+    if (!userId) {
+      toast('Impossible de supprimer : user_id manquant', 'error')
+      setDeleting(false)
+      return
+    }
+    const result = await deleteSetterLog(day.date, userId)
+    setDeleting(false)
+    if (result.error) {
+      toast(result.error, 'error')
+      return
+    }
+    toast('Log supprimé', 'success')
     onClose()
   }
 
@@ -116,13 +137,23 @@ export function EditLogModal({ day, onClose }: EditLogModalProps) {
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-              Annuler
-            </Button>
-            <Button type="submit" size="sm" disabled={loading}>
-              {loading ? 'Enregistrement...' : 'Enregistrer'}
-            </Button>
+          <div className="flex items-center justify-between pt-2">
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="text-xs text-red-500 hover:text-red-700 font-medium disabled:opacity-50"
+            >
+              {deleting ? 'Suppression...' : 'Supprimer'}
+            </button>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+                Annuler
+              </Button>
+              <Button type="submit" size="sm" disabled={loading}>
+                {loading ? 'Enregistrement...' : 'Enregistrer'}
+              </Button>
+            </div>
           </div>
         </form>
       </div>
