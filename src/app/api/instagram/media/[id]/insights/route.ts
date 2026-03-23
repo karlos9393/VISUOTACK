@@ -27,8 +27,11 @@ export async function GET(
 
   if (cached) {
     const age = Date.now() - new Date(cached.fetched_at).getTime()
-    if (age < CACHE_TTL_MS) {
-      // Recalculer views à partir des données cachées
+    const isVideo = mediaType === 'VIDEO' || mediaType === 'REEL'
+    const hasEmptyPlays = isVideo && (!cached.plays || cached.plays === 0)
+
+    // Cache valide ET pas empoisonné (vidéo avec plays=0 → re-fetch)
+    if (age < CACHE_TTL_MS && !hasEmptyPlays) {
       const views = (cached.plays && cached.plays > 0)
         ? cached.plays
         : (cached.impressions || 0)
@@ -49,20 +52,23 @@ export async function GET(
   // Appeler l'API Meta
   const insights = await getMediaInsights(postId, mediaType)
 
-  // Sauvegarder en cache via admin client
-  const admin = createAdminClient()
-  await admin.from('post_insights_cache').upsert({
-    post_id: postId,
-    media_type: mediaType,
-    impressions: insights.impressions || 0,
-    reach: insights.reach || 0,
-    saved: insights.saved || 0,
-    video_views: insights.video_views || 0,
-    plays: insights.plays || 0,
-    shares: insights.shares || 0,
-    follows: insights.follows || 0,
-    fetched_at: new Date().toISOString(),
-  }, { onConflict: 'post_id' })
+  // Ne cacher que si on a vraiment des données (éviter de cacher des résultats vides)
+  const hasData = insights.plays !== undefined || insights.impressions !== undefined || insights.saved !== undefined
+  if (hasData) {
+    const admin = createAdminClient()
+    await admin.from('post_insights_cache').upsert({
+      post_id: postId,
+      media_type: mediaType,
+      impressions: insights.impressions || 0,
+      reach: insights.reach || 0,
+      saved: insights.saved || 0,
+      video_views: insights.video_views || 0,
+      plays: insights.plays || 0,
+      shares: insights.shares || 0,
+      follows: insights.follows || 0,
+      fetched_at: new Date().toISOString(),
+    }, { onConflict: 'post_id' })
+  }
 
   return NextResponse.json(insights)
 }

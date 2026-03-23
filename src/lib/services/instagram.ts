@@ -109,7 +109,7 @@ export async function getMediaInsights(mediaId: string, mediaType: string): Prom
     }
 
     const res = await fetch(
-      `${BASE_URL}/${mediaId}/insights?metric=${metrics}&access_token=${token}`,
+      `${BASE_URL}/${mediaId}/insights?metric=${metrics}&period=lifetime&access_token=${token}`,
       { cache: 'no-store' }
     )
     if (!res.ok) return {}
