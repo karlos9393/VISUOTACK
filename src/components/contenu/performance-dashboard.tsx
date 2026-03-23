@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { format, subDays, startOfDay, endOfDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import Link from 'next/link'
 import { DateRangePicker, type DateRange } from './DateRangePicker'
 import { KpiGrid } from './kpi-grid'
 import { PostsTable } from './posts-table'
@@ -184,6 +185,12 @@ export function PerformanceDashboard({
             )}
           </div>
           <DateRangePicker value={dateRange} onChange={setDateRange} />
+          <Link
+            href="/contenu/performance/comparer"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-violet-700 bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            Comparer deux périodes &rarr;
+          </Link>
         </div>
         <p className="text-xs text-gray-400 mt-1">
           {periodLabel}

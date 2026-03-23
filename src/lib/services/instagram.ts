@@ -191,6 +191,33 @@ export async function getAccountInsights(since: string, until: string): Promise<
   }
 }
 
+// Posts d'une période (filtré par since/until en Unix timestamp)
+export async function getPostsForPeriod(start: Date, end: Date): Promise<IGMedia[]> {
+  const token = getToken()
+  if (!token) return []
+
+  const since = Math.floor(start.getTime() / 1000)
+  const until = Math.floor(end.getTime() / 1000)
+
+  try {
+    const allMedia: IGMedia[] = []
+    let url: string | null =
+      `${BASE_URL}/${IG_ACCOUNT_ID}/media?fields=id,caption,media_type,media_url,thumbnail_url,timestamp,like_count,comments_count,permalink&since=${since}&until=${until}&limit=50&access_token=${token}`
+
+    while (url) {
+      const res: Response = await fetch(url, { cache: 'no-store' })
+      if (!res.ok) break
+      const data: { data?: IGMedia[]; paging?: { next?: string } } = await res.json()
+      allMedia.push(...(data.data || []))
+      url = data.paging?.next || null
+    }
+
+    return allMedia
+  } catch {
+    return []
+  }
+}
+
 // Rafraîchir le long-lived token
 export async function refreshLongLivedToken(currentToken: string): Promise<string | null> {
   try {
