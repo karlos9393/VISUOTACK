@@ -284,7 +284,7 @@ export function DateRangePicker({ value, onChange }: DateRangePickerProps) {
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-2 z-50 bg-white border border-gray-200 rounded-xl shadow-xl flex overflow-hidden">
+        <div className="absolute top-full right-0 mt-2 z-50 bg-white border border-gray-200 rounded-xl shadow-xl flex overflow-hidden max-w-[90vw]">
           {/* Quick periods */}
           <div className="w-52 border-r border-gray-100 py-2 max-h-[400px] overflow-y-auto">
             {quickPeriods.map((p) => (

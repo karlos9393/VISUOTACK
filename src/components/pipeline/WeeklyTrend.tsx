@@ -1,17 +1,47 @@
 'use client'
 
+import { useMemo } from 'react'
+import { startOfWeek, endOfWeek, subWeeks, format } from 'date-fns'
+import { fr } from 'date-fns/locale'
 import { Card, CardTitle } from '@/components/ui/card'
 
-interface WeeklyTrendProps {
-  data: { week: string; booked: number }[]
+interface SetterLog {
+  date: string
+  calls_booked: number
+  [key: string]: unknown
 }
 
-export function WeeklyTrend({ data }: WeeklyTrendProps) {
+interface WeeklyTrendProps {
+  allLogs: SetterLog[]
+}
+
+export function WeeklyTrend({ allLogs }: WeeklyTrendProps) {
+  const data = useMemo(() => {
+    const now = new Date()
+    const weeks = []
+
+    for (let i = 3; i >= 0; i--) {
+      const ws = startOfWeek(subWeeks(now, i), { weekStartsOn: 1 })
+      const we = endOfWeek(subWeeks(now, i), { weekStartsOn: 1 })
+      const wsStr = format(ws, 'yyyy-MM-dd')
+      const weStr = format(we, 'yyyy-MM-dd')
+
+      const weekLogs = allLogs.filter((l) => l.date >= wsStr && l.date <= weStr)
+      const booked = weekLogs.reduce((s, l) => s + (l.calls_booked ?? 0), 0)
+
+      weeks.push({
+        week: `Sem. ${format(ws, 'dd/MM', { locale: fr })}`,
+        booked,
+      })
+    }
+
+    return weeks
+  }, [allLogs])
+
   const maxBooked = Math.max(...data.map((d) => d.booked), 1)
 
   function barColor(value: number) {
     const intensity = Math.max(0.25, value / maxBooked)
-    // Teal gradient: lighter = less, darker = more
     if (intensity >= 0.75) return 'bg-teal-700'
     if (intensity >= 0.5) return 'bg-teal-500'
     if (intensity >= 0.25) return 'bg-teal-400'

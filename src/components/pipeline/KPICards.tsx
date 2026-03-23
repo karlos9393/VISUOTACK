@@ -11,16 +11,10 @@ interface KPICardsProps {
     links_sent: number
     calls_booked: number
   }
-  previousTotals: {
-    conversations: number
-    qualified: number
-    links_sent: number
-    calls_booked: number
-  }
   sparklineData: { day: string; booked: number }[]
 }
 
-export function KPICards({ totals, previousTotals, sparklineData }: KPICardsProps) {
+export function KPICards({ totals, sparklineData }: KPICardsProps) {
   const convToQualified = totals.conversations > 0
     ? conversionRate(totals.conversations, totals.qualified)
     : null
@@ -29,14 +23,6 @@ export function KPICards({ totals, previousTotals, sparklineData }: KPICardsProp
     : null
   const convToCall = totals.conversations > 0
     ? conversionRate(totals.conversations, totals.calls_booked)
-    : null
-
-  // Variations vs period prec
-  const variationConv = previousTotals.conversations > 0
-    ? Math.round(((totals.conversations - previousTotals.conversations) / previousTotals.conversations) * 100)
-    : null
-  const variationCalls = previousTotals.calls_booked > 0
-    ? Math.round(((totals.calls_booked - previousTotals.calls_booked) / previousTotals.calls_booked) * 100)
     : null
 
   return (
@@ -62,27 +48,15 @@ export function KPICards({ totals, previousTotals, sparklineData }: KPICardsProp
         />
       </div>
 
-      {/* 4 key figures */}
+      {/* 2 key figures */}
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="bg-gray-50 rounded-lg p-3">
-          <p className="text-xs text-gray-500">Variation conv.</p>
-          <p className={`text-lg font-bold ${variationConv !== null && variationConv >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {variationConv !== null ? `${variationConv >= 0 ? '+' : ''}${variationConv}%` : '—'}
-          </p>
-        </div>
-        <div className="bg-gray-50 rounded-lg p-3">
-          <p className="text-xs text-gray-500">Total conversations</p>
+          <p className="text-xs text-gray-500">Total conv. actives</p>
           <p className="text-lg font-bold text-gray-900">{totals.conversations}</p>
         </div>
         <div className="bg-gray-50 rounded-lg p-3">
-          <p className="text-xs text-gray-500">Total calls</p>
+          <p className="text-xs text-gray-500">Total calls bookés</p>
           <p className="text-lg font-bold text-gray-900">{totals.calls_booked}</p>
-        </div>
-        <div className="bg-gray-50 rounded-lg p-3">
-          <p className="text-xs text-gray-500">Tendance calls</p>
-          <p className={`text-lg font-bold ${variationCalls !== null && variationCalls >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {variationCalls !== null ? (variationCalls >= 0 ? '↑' : '↓') : '—'}
-          </p>
         </div>
       </div>
 

@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { parseISO, format } from 'date-fns'
+import { fr } from 'date-fns/locale'
 import { Card, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import type { IGMedia, IGMediaInsights } from '@/lib/services/instagram'
@@ -15,12 +17,13 @@ function formatType(type: string) {
 }
 
 function formatDate(ts: string) {
-  return new Date(ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+  const date = parseISO(ts)
+  return format(date, 'd MMM', { locale: fr })
 }
 
-/** Post publié il y a moins de 24h */
+/** Post publié il y a moins de 48h */
 function isRecent(ts: string): boolean {
-  return Date.now() - new Date(ts).getTime() < 24 * 60 * 60 * 1000
+  return Date.now() - parseISO(ts).getTime() < 48 * 60 * 60 * 1000
 }
 
 type SortKey = 'timestamp' | 'like_count' | 'comments_count' | 'saved' | 'views'
@@ -40,11 +43,17 @@ export function PostsTable({ media, bestPostId, insights }: PostsTableProps) {
     return ins?.views ?? 0
   }
 
-  /** Affiche les vues, ou `-` si 0, ou badge "Stats en cours" si post récent */
+  /** Affiche les vues : null → "-", >0 → nombre, 0 + <48h → badge, 0 + >48h → 0 */
   function renderViews(post: IGMedia, loaded: boolean) {
     if (!loaded) return <Skeleton />
-    const views = getViews(post)
+    const ins = insights[post.id]
+    // Pas d'insights (erreur API) → tiret
+    if (!ins || ins.views === undefined || ins.views === null) {
+      return <span className="text-gray-300">-</span>
+    }
+    const views = ins.views
     if (views > 0) return views.toLocaleString('fr-FR')
+    // Vues = 0 : vérifier l'âge du post
     if (isRecent(post.timestamp)) {
       return (
         <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">
@@ -53,7 +62,7 @@ export function PostsTable({ media, bestPostId, insights }: PostsTableProps) {
         </span>
       )
     }
-    return <span className="text-gray-300">-</span>
+    return <span className="text-gray-500">0</span>
   }
 
   function isLoaded(postId: string) {
@@ -105,12 +114,15 @@ export function PostsTable({ media, bestPostId, insights }: PostsTableProps) {
 
   return (
     <Card>
-      <div className="flex items-center gap-2">
-        <CardTitle>Posts Instagram</CardTitle>
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
-          <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-          Live
-        </span>
+      <div>
+        <div className="flex items-center gap-2">
+          <CardTitle>Posts Instagram</CardTitle>
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+            Live
+          </span>
+        </div>
+        <p className="text-xs text-gray-400 mt-1">Stats lifetime par post — filtrage par date de publication</p>
       </div>
 
       {/* Desktop table */}

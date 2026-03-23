@@ -6,7 +6,7 @@ import { fr } from 'date-fns/locale'
 import { DateRangePicker, type DateRange } from './DateRangePicker'
 import { KpiGrid } from './kpi-grid'
 import { PostsTable } from './posts-table'
-import { TemporalChart, PostPerformanceChart, FormatPieChart } from './performance-charts'
+import { TemporalChart, PostPerformanceChart } from './performance-charts'
 import { FollowersInsights } from './followers-insights'
 import type { IGMedia, IGAccountStats, IGAccountInsightsDay, IGMediaInsights } from '@/lib/services/instagram'
 
@@ -196,10 +196,7 @@ export function PerformanceDashboard({
 
       <TemporalChart data={accountInsights} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <PostPerformanceChart media={periodMedia} insights={insights} />
-        <FormatPieChart media={periodMedia} insights={insights} />
-      </div>
+      <PostPerformanceChart media={periodMedia} insights={insights} />
 
       <FollowersInsights data={accountInsights} />
     </div>

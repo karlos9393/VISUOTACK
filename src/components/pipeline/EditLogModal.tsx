@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
 import { updateSetterLogInline } from '@/lib/actions/setter-logs'
+import { format, parseISO } from 'date-fns'
+import { fr } from 'date-fns/locale'
 
 interface DayEntry {
   date: string
@@ -13,6 +15,7 @@ interface DayEntry {
   qualified: number
   links_sent: number
   calls_booked: number
+  notes?: string
 }
 
 interface EditLogModalProps {
@@ -34,58 +37,95 @@ export function EditLogModal({ day, onClose }: EditLogModalProps) {
       return
     }
 
-    toast('Setting mis à jour', 'success')
+    toast('Log mis à jour', 'success')
     onClose()
   }
 
+  const dateLabel = format(parseISO(day.date), 'd MMMM', { locale: fr })
+
   return (
-    <div className="mt-4 border border-gray-200 rounded-lg bg-gray-50 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-semibold text-gray-900 capitalize">
-          Modifier — {day.dayName}
-        </h4>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-sm">
-          ✕
-        </button>
-      </div>
-      <form action={handleSave} className="grid grid-cols-2 gap-3">
-        <Input
-          label="Conversations"
-          name="conversations"
-          type="number"
-          min={0}
-          defaultValue={day.conversations}
-        />
-        <Input
-          label="Qualifiés"
-          name="qualified"
-          type="number"
-          min={0}
-          defaultValue={day.qualified}
-        />
-        <Input
-          label="Liens envoyés"
-          name="links_sent"
-          type="number"
-          min={0}
-          defaultValue={day.links_sent}
-        />
-        <Input
-          label="Calls bookés"
-          name="calls_booked"
-          type="number"
-          min={0}
-          defaultValue={day.calls_booked}
-        />
-        <div className="col-span-2 flex items-center gap-2 pt-2">
-          <Button type="submit" size="sm" disabled={loading}>
-            {loading ? 'Enregistrement...' : 'Enregistrer'}
-          </Button>
-          <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-            Annuler
-          </Button>
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        minHeight: '100%',
+        background: 'rgba(0,0,0,0.45)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 40,
+        padding: '20px',
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="bg-white rounded-xl border border-gray-200 shadow-xl p-6 w-full max-w-md">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-base font-semibold text-gray-900">
+            Modifier le log du {dateLabel}
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+          >
+            ✕
+          </button>
         </div>
-      </form>
+
+        <form action={handleSave} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Conv. actives"
+              name="conversations"
+              type="number"
+              min={0}
+              defaultValue={day.conversations}
+            />
+            <Input
+              label="Qualifiés"
+              name="qualified"
+              type="number"
+              min={0}
+              defaultValue={day.qualified}
+            />
+            <Input
+              label="Liens envoyés"
+              name="links_sent"
+              type="number"
+              min={0}
+              defaultValue={day.links_sent}
+            />
+            <Input
+              label="Calls bookés"
+              name="calls_booked"
+              type="number"
+              min={0}
+              defaultValue={day.calls_booked}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <textarea
+              name="notes"
+              rows={2}
+              defaultValue={day.notes || ''}
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              placeholder="Notes..."
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+              Annuler
+            </Button>
+            <Button type="submit" size="sm" disabled={loading}>
+              {loading ? 'Enregistrement...' : 'Enregistrer'}
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

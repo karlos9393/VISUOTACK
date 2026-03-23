@@ -1,30 +1,38 @@
 'use client'
 
-import { useState } from 'react'
 import { Card, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { EditLogModal } from './EditLogModal'
 
-interface DayEntry {
+export interface DayEntry {
   date: string
   dayName: string
   conversations: number
   qualified: number
   links_sent: number
   calls_booked: number
+  notes?: string
   filled: boolean
   isFuture: boolean
 }
 
 interface DailyLogProps {
   days: DayEntry[]
+  onEdit: (day: DayEntry) => void
 }
 
-export function DailyLog({ days }: DailyLogProps) {
-  const [editingDay, setEditingDay] = useState<DayEntry | null>(null)
+export function DailyLog({ days, onEdit }: DailyLogProps) {
+  const pastDays = days.filter((d) => !d.isFuture)
+  const maxConv = Math.max(...pastDays.map((d) => d.conversations), 1)
+  const maxLinks = Math.max(...pastDays.map((d) => d.links_sent), 1)
 
-  const maxConv = Math.max(...days.map((d) => d.conversations), 1)
-  const maxLinks = Math.max(...days.map((d) => d.links_sent), 1)
+  if (days.length === 0) {
+    return (
+      <Card>
+        <CardTitle>Log jour par jour</CardTitle>
+        <p className="mt-4 text-sm text-gray-400 text-center py-8">Aucune session sur cette période</p>
+      </Card>
+    )
+  }
 
   return (
     <Card>
@@ -73,7 +81,7 @@ export function DailyLog({ days }: DailyLogProps) {
                 <Badge className="bg-red-100 text-red-700">Non rempli</Badge>
               ) : day.filled ? (
                 <button
-                  onClick={() => setEditingDay(day)}
+                  onClick={() => onEdit(day)}
                   className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                 >
                   Modifier
@@ -93,13 +101,6 @@ export function DailyLog({ days }: DailyLogProps) {
           <span className="w-3 h-3 rounded-full bg-teal-500" /> Liens envoyés
         </span>
       </div>
-
-      {editingDay && (
-        <EditLogModal
-          day={editingDay}
-          onClose={() => setEditingDay(null)}
-        />
-      )}
     </Card>
   )
 }

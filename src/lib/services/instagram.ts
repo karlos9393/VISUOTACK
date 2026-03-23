@@ -44,6 +44,8 @@ export interface IGMediaInsights {
   shares?: number
   views?: number
   follows?: number
+  likes?: number
+  comments?: number
 }
 
 export interface IGAccountInsightsDay {
@@ -107,10 +109,14 @@ export async function getMediaInsights(mediaId: string, mediaType: string): Prom
     }
 
     const res = await fetch(
-      `${BASE_URL}/${mediaId}/insights?metric=${metrics}&access_token=${token}`
+      `${BASE_URL}/${mediaId}/insights?metric=${metrics}&access_token=${token}`,
+      { cache: 'no-store' }
     )
     if (!res.ok) return {}
     const data = await res.json()
+
+    // Debug: voir la structure exacte retournée par l'API Meta
+    console.log(`Insights for ${mediaId} (${mediaType}):`, JSON.stringify(data, null, 2))
 
     if (data.error) {
       console.error(`Insights error for ${mediaId}:`, data.error)
@@ -129,6 +135,8 @@ export async function getMediaInsights(mediaId: string, mediaType: string): Prom
         case 'plays': insights.plays = value; break
         case 'shares': insights.shares = value; break
         case 'follows': insights.follows = value; break
+        case 'likes': insights.likes = value; break
+        case 'comments': insights.comments = value; break
       }
     }
 
