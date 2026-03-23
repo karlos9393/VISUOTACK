@@ -39,11 +39,35 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // Authentifié sur /login → redirection accueil
+    // Authentifié sur /login → redirection selon rôle
     if (user && pathname.startsWith('/login')) {
+      const role = await getUserRole(supabase, user.id)
       const url = request.nextUrl.clone()
-      url.pathname = '/'
+      url.pathname = role === 'admin' ? '/pipeline' : '/pipeline/setting'
       return NextResponse.redirect(url)
+    }
+
+    // Authentifié sur / → redirection selon rôle
+    if (user && pathname === '/') {
+      const role = await getUserRole(supabase, user.id)
+      const url = request.nextUrl.clone()
+      url.pathname = role === 'admin' ? '/pipeline' : '/pipeline/setting'
+      return NextResponse.redirect(url)
+    }
+
+    // Pages réservées à l'admin
+    if (user) {
+      const adminOnlyPaths = ['/contenu', '/admin']
+      const isAdminOnly = adminOnlyPaths.some(p => pathname.startsWith(p))
+
+      if (isAdminOnly) {
+        const role = await getUserRole(supabase, user.id)
+        if (role !== 'admin') {
+          const url = request.nextUrl.clone()
+          url.pathname = '/pipeline/setting'
+          return NextResponse.redirect(url)
+        }
+      }
     }
   } catch (error) {
     // Si Supabase est injoignable, laisser passer sans redirection
@@ -51,6 +75,19 @@ export async function middleware(request: NextRequest) {
   }
 
   return supabaseResponse
+}
+
+async function getUserRole(supabase: ReturnType<typeof createServerClient>, userId: string): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+    return data?.role ?? 'setter'
+  } catch {
+    return 'setter'
+  }
 }
 
 export const config = {

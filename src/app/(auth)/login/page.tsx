@@ -40,7 +40,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">CYGA</h1>
-          <p className="text-gray-500 mt-2">Connecte-toi pour accéder au dashboard</p>
+          <p className="text-gray-500 mt-2">Connecte-toi pour accéder à ton espace</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">

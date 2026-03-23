@@ -12,12 +12,10 @@ interface MobileNavProps {
 }
 
 const navigation = [
-  { name: 'Accueil', href: '/', roles: ['admin', 'manager', 'setter'] as Role[] },
   { name: 'Setting du jour', href: '/pipeline/setting', roles: ['admin', 'manager', 'setter'] as Role[] },
-  { name: 'Pipeline', href: '/pipeline', roles: ['admin', 'manager'] as Role[] },
-  { name: 'Calendrier', href: '/contenu/calendrier', roles: ['admin', 'manager', 'setter'] as Role[] },
-  { name: 'Performance', href: '/contenu/performance', roles: ['admin', 'manager'] as Role[] },
-  { name: 'Revenue', href: '/revenue', roles: ['admin'] as Role[] },
+  { name: 'Pipeline', href: '/pipeline', roles: ['admin', 'manager', 'setter'] as Role[] },
+  { name: 'Calendrier', href: '/contenu/calendrier', roles: ['admin'] as Role[] },
+  { name: 'Performance', href: '/contenu/performance', roles: ['admin'] as Role[] },
   { name: 'Admin', href: '/admin', roles: ['admin'] as Role[] },
 ]
 
@@ -48,8 +46,7 @@ export function MobileNav({ role, userName }: MobileNavProps) {
             onClick={(e) => e.stopPropagation()}
           >
             {filteredNav.map((item) => {
-              const isActive = pathname === item.href ||
-                (item.href !== '/' && pathname.startsWith(item.href))
+              const isActive = pathname === item.href || pathname.startsWith(item.href)
               return (
                 <Link
                   key={item.href}
