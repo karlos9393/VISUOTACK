@@ -96,13 +96,10 @@ export async function getMediaInsights(mediaId: string, mediaType: string): Prom
   if (!token) return {}
 
   try {
-    // Métriques selon le type de media (v22.0+)
-    // plays est remplacé par ig_reels_video_view_total_count depuis v22.0
+    // Métriques selon le type de media (v22.0)
     let metrics: string
     if (mediaType === 'VIDEO' || mediaType === 'REEL') {
-      metrics = 'ig_reels_video_view_total_count,saved,likes,comments,shares,reach'
-    } else if (mediaType === 'CAROUSEL_ALBUM') {
-      metrics = 'impressions,saved,likes,comments,shares,reach'
+      metrics = 'views,saved,likes,comments,shares,reach'
     } else {
       metrics = 'impressions,saved,likes,comments,shares,reach'
     }
@@ -136,18 +133,20 @@ export async function getMediaInsights(mediaId: string, mediaType: string): Prom
         case 'saved': insights.saved = value; break
         case 'video_views': insights.video_views = value; break
         case 'plays': insights.plays = value; break
-        case 'ig_reels_video_view_total_count': insights.plays = value; break
+        case 'views': insights.views = value; break
         case 'shares': insights.shares = value; break
         case 'likes': insights.likes = value; break
         case 'comments': insights.comments = value; break
       }
     }
 
-    // Alias : vues = plays (vidéos) ou impressions (images)
-    if (insights.plays !== undefined) {
-      insights.views = insights.plays
-    } else if (insights.impressions !== undefined) {
-      insights.views = insights.impressions
+    // Alias : si views n'est pas déjà set, fallback sur plays puis impressions
+    if (insights.views === undefined) {
+      if (insights.plays !== undefined) {
+        insights.views = insights.plays
+      } else if (insights.impressions !== undefined) {
+        insights.views = insights.impressions
+      }
     }
 
     return insights

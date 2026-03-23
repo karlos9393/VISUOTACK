@@ -40,22 +40,21 @@ export async function GET() {
 
       results.testPost = { id: postId, media_type: mediaType, caption: (post.caption || '').slice(0, 50) }
 
-      // 2) Tester avec les nouvelles métriques v22.0+
-      const metricsVideo = 'ig_reels_video_view_total_count,saved,likes,comments,shares,reach'
+      // 2) Tester avec les métriques corrigées (views au lieu de plays)
+      const metricsVideo = 'views,saved,likes,comments,shares,reach'
       const metricsImage = 'impressions,saved,likes,comments,shares,reach'
       const metrics = (mediaType === 'VIDEO' || mediaType === 'REEL') ? metricsVideo : metricsImage
 
-      const urlNew = `${BASE_URL}/${postId}/insights?metric=${metrics}&access_token=${token}`
-      const res1 = await fetch(urlNew, { cache: 'no-store' })
+      const urlFull = `${BASE_URL}/${postId}/insights?metric=${metrics}&access_token=${token}`
+      const res1 = await fetch(urlFull, { cache: 'no-store' })
       const body1 = await res1.json()
-      results.newMetrics = { status: res1.status, body: body1 }
+      results.fullMetrics = { metrics, status: res1.status, body: body1 }
 
-      // 3) Tester juste ig_reels_video_view_total_count seul
-      const minMetric = (mediaType === 'VIDEO' || mediaType === 'REEL') ? 'ig_reels_video_view_total_count' : 'impressions'
-      const urlMin = `${BASE_URL}/${postId}/insights?metric=${minMetric}&access_token=${token}`
-      const res2 = await fetch(urlMin, { cache: 'no-store' })
+      // 3) Tester juste "views" seul
+      const urlViews = `${BASE_URL}/${postId}/insights?metric=views&access_token=${token}`
+      const res2 = await fetch(urlViews, { cache: 'no-store' })
       const body2 = await res2.json()
-      results.minimalMetric = { metric: minMetric, status: res2.status, body: body2 }
+      results.viewsOnly = { status: res2.status, body: body2 }
     }
   } catch (e) {
     results.error = String(e)
