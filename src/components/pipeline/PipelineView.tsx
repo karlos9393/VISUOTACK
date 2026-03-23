@@ -55,7 +55,7 @@ export function PipelineView({ allLogs, hasTodayLog, todayFilledBy = [] }: Pipel
       { conversations: 0, qualified: 0, links_sent: 0, calls_booked: 0 }
     ), [periodLogs])
 
-  // Générer les jours de la période
+  // Générer les entrées : une ligne par log (multi-setter), une ligne vide si aucun log
   const dayEntries = useMemo(() => {
     const now = new Date()
     const days = eachDayOfInterval({
@@ -63,22 +63,38 @@ export function PipelineView({ allLogs, hasTodayLog, todayFilledBy = [] }: Pipel
       end: dateRange.end,
     }).reverse() // du plus récent au plus ancien
 
-    return days.map((day) => {
+    const entries: DayEntry[] = []
+    for (const day of days) {
       const dateStr = format(day, 'yyyy-MM-dd')
-      const log = periodLogs.find((l) => l.date === dateStr)
-      return {
-        date: dateStr,
-        dayName: format(day, 'EEE dd/MM', { locale: fr }),
-        conversations: log?.conversations ?? 0,
-        qualified: log?.qualified ?? 0,
-        links_sent: log?.links_sent ?? 0,
-        calls_booked: log?.calls_booked ?? 0,
-        notes: log?.notes || '',
-        filled: !!log,
-        filled_by: log?.users?.full_name || null,
-        isFuture: isAfter(day, now),
+      const dayName = format(day, 'EEE dd/MM', { locale: fr })
+      const future = isAfter(day, now)
+      const dayLogs = periodLogs.filter((l) => l.date === dateStr)
+
+      if (dayLogs.length === 0) {
+        entries.push({
+          date: dateStr,
+          dayName,
+          conversations: 0, qualified: 0, links_sent: 0, calls_booked: 0,
+          notes: '', filled: false, filled_by: null, isFuture: future,
+        })
+      } else {
+        dayLogs.forEach((log, i) => {
+          entries.push({
+            date: dateStr,
+            dayName: i === 0 ? dayName : '',
+            conversations: log.conversations ?? 0,
+            qualified: log.qualified ?? 0,
+            links_sent: log.links_sent ?? 0,
+            calls_booked: log.calls_booked ?? 0,
+            notes: log.notes || '',
+            filled: true,
+            filled_by: log.users?.full_name || null,
+            isFuture: future,
+          })
+        })
       }
-    })
+    }
+    return entries
   }, [dateRange, periodLogs])
 
   // Sparkline data (jours passés uniquement)

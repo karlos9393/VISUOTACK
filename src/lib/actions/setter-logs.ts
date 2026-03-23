@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { format, subDays, startOfWeek, subWeeks } from 'date-fns'
 import { z } from 'zod'
 
 const setterLogSchema = z.object({
@@ -96,4 +97,83 @@ export async function updateSetterLogInline(logDate: string, formData: FormData)
 
   revalidatePath('/pipeline')
   return { success: true }
+}
+
+export interface SetterStats {
+  thisWeek: { conversations: number; qualified: number; links_sent: number; calls_booked: number }
+  lastWeek: { conversations: number; qualified: number; links_sent: number; calls_booked: number }
+  linksDelta: number | null
+  streak: number
+}
+
+export async function getSetterStats(): Promise<SetterStats | null> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+
+  const now = new Date()
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 })
+  const lastWeekStart = subWeeks(weekStart, 1)
+  const lastWeekEnd = subDays(weekStart, 1)
+
+  // Semaine en cours + semaine précédente en parallèle
+  const [thisWeekRes, lastWeekRes, streakRes] = await Promise.all([
+    supabase
+      .from('setter_logs')
+      .select('conversations, qualified, links_sent, calls_booked')
+      .eq('user_id', user.id)
+      .gte('date', format(weekStart, 'yyyy-MM-dd'))
+      .lte('date', format(now, 'yyyy-MM-dd')),
+    supabase
+      .from('setter_logs')
+      .select('conversations, qualified, links_sent, calls_booked')
+      .eq('user_id', user.id)
+      .gte('date', format(lastWeekStart, 'yyyy-MM-dd'))
+      .lte('date', format(lastWeekEnd, 'yyyy-MM-dd')),
+    supabase
+      .from('setter_logs')
+      .select('date')
+      .eq('user_id', user.id)
+      .order('date', { ascending: false })
+      .limit(30),
+  ])
+
+  const sum = (logs: typeof thisWeekRes.data) =>
+    (logs || []).reduce(
+      (acc, l) => ({
+        conversations: acc.conversations + (l.conversations ?? 0),
+        qualified: acc.qualified + (l.qualified ?? 0),
+        links_sent: acc.links_sent + (l.links_sent ?? 0),
+        calls_booked: acc.calls_booked + (l.calls_booked ?? 0),
+      }),
+      { conversations: 0, qualified: 0, links_sent: 0, calls_booked: 0 }
+    )
+
+  const thisWeek = sum(thisWeekRes.data)
+  const lastWeek = sum(lastWeekRes.data)
+
+  const linksDelta = lastWeek.links_sent === 0
+    ? null
+    : Math.round(((thisWeek.links_sent - lastWeek.links_sent) / lastWeek.links_sent) * 100)
+
+  // Calcul série
+  let streak = 0
+  const logs = streakRes.data || []
+  if (logs.length > 0) {
+    let checkDate = new Date()
+    const todayStr = format(now, 'yyyy-MM-dd')
+    if (logs[0].date !== todayStr) {
+      checkDate = subDays(checkDate, 1)
+    }
+    for (const log of logs) {
+      if (log.date === format(checkDate, 'yyyy-MM-dd')) {
+        streak++
+        checkDate = subDays(checkDate, 1)
+      } else {
+        break
+      }
+    }
+  }
+
+  return { thisWeek, lastWeek, linksDelta, streak }
 }

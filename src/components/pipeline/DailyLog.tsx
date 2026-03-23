@@ -39,9 +39,9 @@ export function DailyLog({ days, onEdit }: DailyLogProps) {
     <Card>
       <CardTitle>Log jour par jour</CardTitle>
       <div className="mt-4 space-y-2">
-        {days.map((day) => (
+        {days.map((day, idx) => (
           <div
-            key={day.date}
+            key={`${day.date}-${day.filled_by ?? idx}`}
             className={`flex items-center gap-3 py-2 px-3 rounded-lg ${
               !day.filled && !day.isFuture ? 'bg-gray-50 opacity-60' : ''
             } ${day.isFuture ? 'opacity-40' : ''}`}
