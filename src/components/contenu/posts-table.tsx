@@ -1,11 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { parseISO, format } from 'date-fns'
-import { fr } from 'date-fns/locale'
 import { Card, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import type { IGMedia, IGMediaInsights } from '@/lib/services/instagram'
+
+const dateFmt = new Intl.DateTimeFormat('fr-FR', {
+  day: 'numeric',
+  month: 'short',
+  timeZone: 'Europe/Paris',
+})
 
 function formatType(type: string) {
   switch (type) {
@@ -17,13 +21,12 @@ function formatType(type: string) {
 }
 
 function formatDate(ts: string) {
-  const date = parseISO(ts)
-  return format(date, 'd MMM', { locale: fr })
+  return dateFmt.format(new Date(ts))
 }
 
 /** Post publié il y a moins de 48h */
 function isRecent(ts: string): boolean {
-  return Date.now() - parseISO(ts).getTime() < 48 * 60 * 60 * 1000
+  return Date.now() - new Date(ts).getTime() < 48 * 60 * 60 * 1000
 }
 
 type SortKey = 'timestamp' | 'like_count' | 'comments_count' | 'saved' | 'views'
