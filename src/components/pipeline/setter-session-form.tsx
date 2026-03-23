@@ -60,7 +60,7 @@ export function SetterSessionForm() {
       return
     }
 
-    toast(`Session du ${formatDate(date)} enregistrée`, 'success')
+    toast(`Setting du ${formatDate(date)} enregistré ✓`, 'success')
     setIsUpdate(true)
   }
 
@@ -68,7 +68,7 @@ export function SetterSessionForm() {
     <div className="flex justify-center">
       <Card className="w-full max-w-md">
         <div className="mb-5">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Session du</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Setting du</label>
           <input
             type="date"
             value={date}
@@ -137,7 +137,7 @@ export function SetterSessionForm() {
             )}
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Enregistrement...' : isUpdate ? 'Mettre à jour la session' : 'Enregistrer la session'}
+              {loading ? 'Enregistrement...' : isUpdate ? 'Mettre à jour le setting' : 'Enregistrer le setting'}
             </Button>
           </form>
         )}

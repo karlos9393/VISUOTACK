@@ -32,7 +32,7 @@ interface WeeklyLogsTableProps {
 export function WeeklyLogsTable({ dayLogs, totals }: WeeklyLogsTableProps) {
   return (
     <Card>
-      <CardTitle>Sessions quotidiennes</CardTitle>
+      <CardTitle>Settings quotidiens</CardTitle>
       <div className="mt-4 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -79,7 +79,7 @@ function DayRow({ day }: { day: DayLog }) {
       return
     }
 
-    toast('Session mise à jour', 'success')
+    toast('Setting mis à jour', 'success')
     setEditing(false)
   }
 

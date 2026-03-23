@@ -31,7 +31,7 @@ export default async function HomePage() {
           <Link href="/pipeline">
             <Card className="hover:border-blue-300 hover:shadow-md transition-all cursor-pointer">
               <p className="text-lg font-semibold text-gray-900">Pipeline</p>
-              <p className="text-sm text-gray-500 mt-1">Funnel setter et sessions</p>
+              <p className="text-sm text-gray-500 mt-1">Funnel setter et settings</p>
             </Card>
           </Link>
           <Link href="/contenu/calendrier">
@@ -68,14 +68,14 @@ export default async function HomePage() {
         Bonne journée, {profile.full_name || 'Setter'}
       </h1>
 
-      <Link href="/pipeline/log">
+      <Link href="/pipeline/setting">
         <Button size="lg" className="text-base px-8 py-4">
-          Remplir ma session du jour
+          Remplir mon setting du jour
         </Button>
       </Link>
 
       <p className={`text-sm font-medium ${todayLog ? 'text-green-600' : 'text-red-600'}`}>
-        Session du jour : {todayLog ? 'Remplie' : 'À remplir'}
+        Setting du jour : {todayLog ? 'Rempli' : 'À remplir'}
       </p>
     </div>
   )

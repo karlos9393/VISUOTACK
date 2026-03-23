@@ -32,9 +32,9 @@ export function conversionRate(from: number, to: number): number {
 }
 
 export function rateColor(rate: number): string {
-  if (rate >= 50) return 'text-green-600 bg-green-50'
-  if (rate >= 30) return 'text-orange-600 bg-orange-50'
-  return 'text-red-600 bg-red-50'
+  if (rate >= 50) return 'bg-[#EAF3DE] text-[#27500A]'
+  if (rate >= 30) return 'bg-[#FAEEDA] text-[#633806]'
+  return 'bg-[#FCEBEB] text-[#791F1F]'
 }
 
 export function statusColor(status: string): string {

@@ -1,32 +1,28 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { PeriodSelector, type PeriodKey } from './period-selector'
+import { format, subDays, startOfDay, endOfDay } from 'date-fns'
+import { fr } from 'date-fns/locale'
+import { DateRangePicker, type DateRange } from './DateRangePicker'
 import { KpiGrid } from './kpi-grid'
 import { PostsTable } from './posts-table'
 import { TemporalChart, PostPerformanceChart, FormatPieChart } from './performance-charts'
 import { FollowersInsights } from './followers-insights'
 import type { IGMedia, IGAccountStats, IGAccountInsightsDay, IGMediaInsights } from '@/lib/services/instagram'
 
-function daysAgo(n: number): string {
-  const d = new Date()
-  d.setDate(d.getDate() - n)
-  return d.toISOString().split('T')[0]
-}
-
 function formatFR(n: number): string {
   return n.toLocaleString('fr-FR')
 }
 
-function filterByPeriod(media: IGMedia[], since: string, until: string): IGMedia[] {
-  const start = new Date(since)
-  start.setHours(0, 0, 0, 0)
-  const end = new Date(until)
-  end.setHours(23, 59, 59, 999)
+function filterByRange(media: IGMedia[], range: DateRange): IGMedia[] {
   return media.filter(m => {
     const d = new Date(m.timestamp)
-    return d >= start && d <= end
+    return d >= range.start && d <= range.end
   })
+}
+
+function toDateStr(d: Date): string {
+  return d.toISOString().split('T')[0]
 }
 
 interface PerformanceDashboardProps {
@@ -40,10 +36,11 @@ export function PerformanceDashboard({
   initialMedia,
   initialTokenExpired,
 }: PerformanceDashboardProps) {
-  const [period, setPeriod] = useState<PeriodKey>('30d')
-  const [customStart, setCustomStart] = useState(daysAgo(30))
-  const [customEnd, setCustomEnd] = useState(daysAgo(0))
-  const [compareEnabled, setCompareEnabled] = useState(false)
+  // Default: 7 derniers jours
+  const [dateRange, setDateRange] = useState<DateRange>({
+    start: startOfDay(subDays(new Date(), 6)),
+    end: endOfDay(new Date()),
+  })
 
   const accountStats = initialAccountStats
   const allMedia = initialMedia
@@ -51,38 +48,6 @@ export function PerformanceDashboard({
 
   const [insights, setInsights] = useState<Record<string, IGMediaInsights>>({})
   const [accountInsights, setAccountInsights] = useState<IGAccountInsightsDay[]>([])
-  const [prevAccountInsights, setPrevAccountInsights] = useState<IGAccountInsightsDay[]>([])
-
-  // Calculer les dates de la période
-  const { since, until, prevSince, prevUntil } = useMemo(() => {
-    let days = 30
-    let s = '', u = daysAgo(0)
-    switch (period) {
-      case 'today': days = 1; break
-      case '3d': days = 3; break
-      case '7d': days = 7; break
-      case '14d': days = 14; break
-      case '30d': days = 30; break
-      case 'custom': {
-        s = customStart
-        u = customEnd
-        days = Math.max(1, Math.round((new Date(u).getTime() - new Date(s).getTime()) / 86400000))
-        return {
-          since: s,
-          until: u,
-          prevSince: daysAgo(days * 2 + (Math.round((new Date().getTime() - new Date(u).getTime()) / 86400000))),
-          prevUntil: daysAgo(days + (Math.round((new Date().getTime() - new Date(u).getTime()) / 86400000))),
-        }
-      }
-    }
-    s = daysAgo(days)
-    return {
-      since: s,
-      until: u,
-      prevSince: daysAgo(days * 2),
-      prevUntil: daysAgo(days),
-    }
-  }, [period, customStart, customEnd])
 
   // Batch fetch insights pour tous les posts (groupes de 5)
   const fetchAllInsights = useCallback(async (media: IGMedia[]) => {
@@ -121,45 +86,28 @@ export function PerformanceDashboard({
 
   // Charger les account insights quand la période change
   useEffect(() => {
+    const since = toDateStr(dateRange.start)
+    const until = toDateStr(dateRange.end)
     fetch(`/api/instagram/account?since=${since}&until=${until}`)
       .then(r => r.ok ? r.json() : { data: [] })
       .then(res => setAccountInsights(res.data || []))
       .catch(() => setAccountInsights([]))
+  }, [dateRange])
 
-    if (compareEnabled) {
-      fetch(`/api/instagram/account?since=${prevSince}&until=${prevUntil}`)
-        .then(r => r.ok ? r.json() : { data: [] })
-        .then(res => setPrevAccountInsights(res.data || []))
-        .catch(() => setPrevAccountInsights([]))
-    }
-  }, [since, until, prevSince, prevUntil, compareEnabled])
+  // Posts filtrés par période
+  const periodMedia = useMemo(() => filterByRange(allMedia, dateRange), [allMedia, dateRange])
 
-  // Posts filtrés par période (pour KPIs et graphiques)
-  const periodMedia = useMemo(() => filterByPeriod(allMedia, since, until), [allMedia, since, until])
-  const prevPeriodMedia = useMemo(() => filterByPeriod(allMedia, prevSince, prevUntil), [allMedia, prevSince, prevUntil])
-
-  // Calculs KPIs — basés sur la période
-  const totalImpressions = useMemo(() =>
-    periodMedia.reduce((s, p) => s + (insights[p.id]?.impressions || 0), 0), [periodMedia, insights])
-  const totalReach = useMemo(() =>
-    periodMedia.reduce((s, p) => s + (insights[p.id]?.reach || 0), 0), [periodMedia, insights])
+  // KPIs
+  const totalViews = useMemo(() =>
+    periodMedia.reduce((s, p) => s + (insights[p.id]?.views || 0), 0), [periodMedia, insights])
   const totalLikes = useMemo(() =>
     periodMedia.reduce((s, p) => s + (p.like_count || 0), 0), [periodMedia])
   const totalComments = useMemo(() =>
     periodMedia.reduce((s, p) => s + (p.comments_count || 0), 0), [periodMedia])
+  const totalSaves = useMemo(() =>
+    periodMedia.reduce((s, p) => s + (insights[p.id]?.saved || 0), 0), [periodMedia, insights])
 
-  // Période précédente pour trends
-  const prevImpressions = prevPeriodMedia.reduce((s, p) => s + (insights[p.id]?.impressions || 0), 0)
-  const prevReach = prevPeriodMedia.reduce((s, p) => s + (insights[p.id]?.reach || 0), 0)
-  const prevLikes = prevPeriodMedia.reduce((s, p) => s + (p.like_count || 0), 0)
-  const prevComments = prevPeriodMedia.reduce((s, p) => s + (p.comments_count || 0), 0)
-
-  function trend(curr: number, prev: number): number | null {
-    if (prev === 0) return null
-    return Math.round(((curr - prev) / prev) * 100)
-  }
-
-  // Meilleur post de la période (basé sur likes)
+  // Meilleur post de la période (basé sur les likes)
   const bestPost = useMemo(() => {
     if (periodMedia.length === 0) return null
     const best = periodMedia.reduce((b, p) =>
@@ -169,49 +117,50 @@ export function PerformanceDashboard({
       id: best.id,
       thumbnail: best.thumbnail_url || best.media_url,
       caption: best.caption || best.id,
-      views: best.like_count || 0,
+      views: insights[best.id]?.views || 0,
       likes: best.like_count || 0,
     }
-  }, [periodMedia])
+  }, [periodMedia, insights])
 
   const kpiItems = [
     {
       title: 'Abonnés',
       value: accountStats?.followers_count ? formatFR(accountStats.followers_count) : '-',
       subtitle: accountStats ? `@${accountStats.username}` : undefined,
-      trend: null,
     },
     {
       title: 'Posts publiés',
       value: periodMedia.length,
       subtitle: 'sur période',
-      trend: trend(periodMedia.length, prevPeriodMedia.length),
     },
     {
-      title: 'Impressions',
-      value: formatFR(totalImpressions),
+      title: 'Vues',
+      value: totalViews > 0 ? formatFR(totalViews) : '-',
       subtitle: 'sur période',
-      trend: trend(totalImpressions, prevImpressions),
-    },
-    {
-      title: 'Reach',
-      value: formatFR(totalReach),
-      subtitle: 'sur période',
-      trend: trend(totalReach, prevReach),
     },
     {
       title: 'Likes',
       value: formatFR(totalLikes),
       subtitle: 'sur période',
-      trend: trend(totalLikes, prevLikes),
     },
     {
       title: 'Commentaires',
       value: formatFR(totalComments),
       subtitle: 'sur période',
-      trend: trend(totalComments, prevComments),
+    },
+    {
+      title: 'Saves',
+      value: totalSaves > 0 ? formatFR(totalSaves) : '-',
+      subtitle: 'sur période',
     },
   ]
+
+  // Subtitle with period range
+  const periodLabel = useMemo(() => {
+    const s = format(dateRange.start, 'd MMMM', { locale: fr })
+    const e = format(dateRange.end, 'd MMMM yyyy', { locale: fr })
+    return `${periodMedia.length} posts — du ${s} au ${e}`
+  }, [dateRange, periodMedia.length])
 
   return (
     <div className="space-y-6">
@@ -224,52 +173,35 @@ export function PerformanceDashboard({
       )}
 
       <div>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-gray-900">Performance Instagram</h1>
-          {!tokenExpired && (
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
-              <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-              Live
-            </span>
-          )}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-gray-900">Performance Instagram</h1>
+            {!tokenExpired && (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                Live
+              </span>
+            )}
+          </div>
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
         </div>
         <p className="text-xs text-gray-400 mt-1">
-          {allMedia.length} posts chargés — {periodMedia.length} sur la période sélectionnée
+          {periodLabel}
         </p>
       </div>
 
-      <PeriodSelector
-        selected={period}
-        onSelect={setPeriod}
-        customStart={customStart}
-        customEnd={customEnd}
-        onCustomStartChange={setCustomStart}
-        onCustomEndChange={setCustomEnd}
-        compareEnabled={compareEnabled}
-        onCompareToggle={() => setCompareEnabled(!compareEnabled)}
-      />
-
       <KpiGrid items={kpiItems} bestPost={bestPost} />
 
-      {/* Tableau : montre TOUS les posts, pas seulement la période */}
-      <PostsTable media={allMedia} bestPostId={bestPost?.id} insights={insights} />
+      <PostsTable media={periodMedia} bestPostId={bestPost?.id} insights={insights} />
 
-      <TemporalChart
-        data={accountInsights}
-        prevData={compareEnabled ? prevAccountInsights : undefined}
-        compareEnabled={compareEnabled}
-      />
+      <TemporalChart data={accountInsights} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <PostPerformanceChart media={periodMedia} insights={insights} />
         <FormatPieChart media={periodMedia} insights={insights} />
       </div>
 
-      <FollowersInsights
-        data={accountInsights}
-        prevData={compareEnabled ? prevAccountInsights : undefined}
-        compareEnabled={compareEnabled}
-      />
+      <FollowersInsights data={accountInsights} />
     </div>
   )
 }

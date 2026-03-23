@@ -55,10 +55,10 @@ export async function upsertSetterLog(formData: FormData) {
 
   if (error) return { error: error.message }
 
-  revalidatePath('/pipeline/log')
+  revalidatePath('/pipeline/setting')
   revalidatePath('/pipeline')
   revalidatePath('/')
-  return { success: true, date: result.data.date }
+  return { success: true, date: result.data.date, message: 'Setting du jour enregistré ✓' }
 }
 
 export async function getSetterLogForDate(date: string) {

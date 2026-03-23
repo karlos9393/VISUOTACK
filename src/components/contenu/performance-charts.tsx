@@ -11,18 +11,16 @@ import type { IGAccountInsightsDay, IGMedia, IGMediaInsights } from '@/lib/servi
 
 interface TemporalChartProps {
   data: IGAccountInsightsDay[]
-  prevData?: IGAccountInsightsDay[]
-  compareEnabled?: boolean
 }
 
-export function TemporalChart({ data, prevData, compareEnabled }: TemporalChartProps) {
-  const chartData = data.map((d, i) => ({
+export function TemporalChart({ data }: TemporalChartProps) {
+  const chartData = data.map((d) => ({
     date: new Date(d.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
     impressions: d.impressions,
     reach: d.reach,
-    impressions_prev: compareEnabled && prevData?.[i] ? prevData[i].impressions : undefined,
-    reach_prev: compareEnabled && prevData?.[i] ? prevData[i].reach : undefined,
   }))
+
+  if (chartData.length === 0) return null
 
   return (
     <Card>
@@ -37,12 +35,6 @@ export function TemporalChart({ data, prevData, compareEnabled }: TemporalChartP
             <Legend />
             <Line type="monotone" dataKey="impressions" stroke="#7c3aed" strokeWidth={2} name="Impressions" dot={false} />
             <Line type="monotone" dataKey="reach" stroke="#14b8a6" strokeWidth={2} name="Reach" dot={false} />
-            {compareEnabled && (
-              <>
-                <Line type="monotone" dataKey="impressions_prev" stroke="#7c3aed" strokeWidth={1.5} strokeDasharray="5 5" name="Impr. préc." dot={false} />
-                <Line type="monotone" dataKey="reach_prev" stroke="#14b8a6" strokeWidth={1.5} strokeDasharray="5 5" name="Reach préc." dot={false} />
-              </>
-            )}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -68,11 +60,9 @@ export function PostPerformanceChart({ media, insights }: PostPerformanceChartPr
   const data = media
     .map(post => {
       const ins = insights[post.id]
-      const isVideo = post.media_type === 'REEL' || post.media_type === 'VIDEO'
-      const views = isVideo ? (ins?.video_views ?? ins?.plays ?? 0) : (ins?.impressions ?? 0)
       return {
         name: (post.caption || '').slice(0, 30) || post.id.slice(-6),
-        views,
+        views: ins?.views ?? 0,
         type: post.media_type,
         fill: typeColors[post.media_type] || '#6b7280',
       }
@@ -121,8 +111,7 @@ export function FormatPieChart({ media, insights }: FormatPieChartProps) {
     if (!groups[type]) groups[type] = { count: 0, totalViews: 0 }
     groups[type].count++
     const ins = insights[post.id]
-    const isVideo = type === 'REEL' || type === 'VIDEO'
-    groups[type].totalViews += isVideo ? (ins?.video_views ?? ins?.plays ?? 0) : (ins?.impressions ?? 0)
+    groups[type].totalViews += ins?.views ?? 0
   }
 
   const data = Object.entries(groups).map(([type, g]) => ({

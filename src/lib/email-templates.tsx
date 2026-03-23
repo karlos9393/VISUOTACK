@@ -24,10 +24,10 @@ export function SetterReminderEmail({ firstName }: { firstName: string }) {
   return (
     <EmailLayout>
       <p style={{ color: '#374151', fontSize: '14px', lineHeight: '1.6' }}>
-        Bonsoir {firstName}, n&apos;oublie pas de remplir ton log du jour avant de dormir.
+        Bonsoir {firstName}, n&apos;oublie pas de remplir ton setting du jour avant de dormir.
       </p>
       <a
-        href={`${baseUrl}/pipeline/log`}
+        href={`${baseUrl}/pipeline/setting`}
         style={{
           display: 'inline-block',
           backgroundColor: '#2563eb',
@@ -40,7 +40,7 @@ export function SetterReminderEmail({ firstName }: { firstName: string }) {
           marginTop: '15px',
         }}
       >
-        Remplir mon log
+        Remplir mon setting
       </a>
     </EmailLayout>
   )

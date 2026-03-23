@@ -6,21 +6,18 @@ import type { IGAccountInsightsDay } from '@/lib/services/instagram'
 
 interface FollowersInsightsProps {
   data: IGAccountInsightsDay[]
-  prevData?: IGAccountInsightsDay[]
-  compareEnabled?: boolean
 }
 
-export function FollowersInsights({ data, prevData, compareEnabled }: FollowersInsightsProps) {
+export function FollowersInsights({ data }: FollowersInsightsProps) {
   if (data.length === 0) return null
 
   const first = data[0]?.follower_count || 0
   const last = data[data.length - 1]?.follower_count || 0
   const gained = last - first
 
-  const chartData = data.map((d, i) => ({
+  const chartData = data.map((d) => ({
     date: new Date(d.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
     followers: d.follower_count,
-    followers_prev: compareEnabled && prevData?.[i] ? prevData[i].follower_count : undefined,
   }))
 
   return (
@@ -60,17 +57,6 @@ export function FollowersInsights({ data, prevData, compareEnabled }: FollowersI
               name="Abonnés"
               dot={false}
             />
-            {compareEnabled && (
-              <Line
-                type="monotone"
-                dataKey="followers_prev"
-                stroke="#9ca3af"
-                strokeWidth={1.5}
-                strokeDasharray="5 5"
-                name="Préc."
-                dot={false}
-              />
-            )}
           </LineChart>
         </ResponsiveContainer>
       </div>

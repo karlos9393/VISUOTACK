@@ -13,7 +13,7 @@ interface MobileNavProps {
 
 const navigation = [
   { name: 'Accueil', href: '/', roles: ['admin', 'manager', 'setter'] as Role[] },
-  { name: 'Session du jour', href: '/pipeline/log', roles: ['admin', 'manager', 'setter'] as Role[] },
+  { name: 'Setting du jour', href: '/pipeline/setting', roles: ['admin', 'manager', 'setter'] as Role[] },
   { name: 'Pipeline', href: '/pipeline', roles: ['admin', 'manager'] as Role[] },
   { name: 'Calendrier', href: '/contenu/calendrier', roles: ['admin', 'manager', 'setter'] as Role[] },
   { name: 'Performance', href: '/contenu/performance', roles: ['admin', 'manager'] as Role[] },

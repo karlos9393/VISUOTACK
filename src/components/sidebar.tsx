@@ -12,7 +12,7 @@ interface SidebarProps {
 
 const navigation = [
   { name: 'Accueil', href: '/', roles: ['admin', 'manager', 'setter'] as Role[], icon: HomeIcon },
-  { name: 'Session du jour', href: '/pipeline/log', roles: ['admin', 'manager', 'setter'] as Role[], icon: ClipboardIcon },
+  { name: 'Setting du jour', href: '/pipeline/setting', roles: ['admin', 'manager', 'setter'] as Role[], icon: ClipboardIcon },
   { name: 'Pipeline', href: '/pipeline', roles: ['admin', 'manager'] as Role[], icon: FunnelIcon },
   { name: 'Calendrier', href: '/contenu/calendrier', roles: ['admin', 'manager', 'setter'] as Role[], icon: CalendarIcon },
   { name: 'Performance', href: '/contenu/performance', roles: ['admin', 'manager'] as Role[], icon: ChartIcon },

@@ -6,7 +6,7 @@
 
 -- 1. Fonction qui injecte le rôle dans le JWT
 CREATE OR REPLACE FUNCTION public.custom_access_token_hook(event jsonb)
-RETURNS jsonb LANGUAGE plpgsql STABLE AS $$
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
   claims jsonb;
   user_role text;
@@ -42,10 +42,14 @@ DROP POLICY IF EXISTS "users_update_own" ON users;
 
 -- Setter logs
 DROP POLICY IF EXISTS "setter_own_logs" ON setter_logs;
+DROP POLICY IF EXISTS "manager_read_all" ON setter_logs;
 DROP POLICY IF EXISTS "manager_read_all_logs" ON setter_logs;
+DROP POLICY IF EXISTS "manager_read_logs" ON setter_logs;
 
 -- Revenue
 DROP POLICY IF EXISTS "revenue_restricted" ON revenue_entries;
+DROP POLICY IF EXISTS "admin_manager_revenue" ON revenue_entries;
+DROP POLICY IF EXISTS "revenue_admin_manager" ON revenue_entries;
 
 -- Weekly reports
 DROP POLICY IF EXISTS "reports_restricted" ON weekly_reports;

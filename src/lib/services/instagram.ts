@@ -42,6 +42,8 @@ export interface IGMediaInsights {
   video_views?: number
   plays?: number
   shares?: number
+  views?: number
+  follows?: number
 }
 
 export interface IGAccountInsightsDay {
@@ -86,16 +88,23 @@ export async function getMediaList(): Promise<IGMedia[]> {
   }
 }
 
-// Insights d'un post (vues, reach, saves, shares)
+// Insights d'un post (vues, saves, likes, etc.)
 export async function getMediaInsights(mediaId: string, mediaType: string): Promise<IGMediaInsights> {
   const token = getToken()
   if (!token) return {}
 
   try {
-    const isVideo = mediaType === 'VIDEO' || mediaType === 'REEL'
-    const metrics = isVideo
-      ? 'impressions,reach,saved,video_views,plays,shares'
-      : 'impressions,reach,saved,shares'
+    // Métriques selon le type de media
+    // plays = nombre de lectures (métrique "vues" correcte pour REEL/VIDEO en 2024+)
+    // impressions = affichages (métrique "vues" pour IMAGE/CAROUSEL)
+    let metrics: string
+    if (mediaType === 'VIDEO' || mediaType === 'REEL') {
+      metrics = 'plays,saved,comments,likes,shares,follows'
+    } else if (mediaType === 'CAROUSEL_ALBUM') {
+      metrics = 'impressions,saved,comments,likes,shares,follows'
+    } else {
+      metrics = 'impressions,saved,comments,likes,shares,follows'
+    }
 
     const res = await fetch(
       `${BASE_URL}/${mediaId}/insights?metric=${metrics}&access_token=${token}`
@@ -103,9 +112,15 @@ export async function getMediaInsights(mediaId: string, mediaType: string): Prom
     if (!res.ok) return {}
     const data = await res.json()
 
+    if (data.error) {
+      console.error(`Insights error for ${mediaId}:`, data.error)
+      return {}
+    }
+
+    // Normaliser les données retournées
     const insights: IGMediaInsights = {}
     for (const item of data.data || []) {
-      const value = item.values?.[0]?.value ?? 0
+      const value = item.values?.[0]?.value ?? item.value ?? 0
       switch (item.name) {
         case 'impressions': insights.impressions = value; break
         case 'reach': insights.reach = value; break
@@ -113,8 +128,17 @@ export async function getMediaInsights(mediaId: string, mediaType: string): Prom
         case 'video_views': insights.video_views = value; break
         case 'plays': insights.plays = value; break
         case 'shares': insights.shares = value; break
+        case 'follows': insights.follows = value; break
       }
     }
+
+    // Alias : "plays" devient "views" pour notre interface, sinon "impressions"
+    if (insights.plays !== undefined) {
+      insights.views = insights.plays
+    } else if (insights.impressions !== undefined) {
+      insights.views = insights.impressions
+    }
+
     return insights
   } catch {
     return {}

@@ -28,6 +28,10 @@ export async function GET(
   if (cached) {
     const age = Date.now() - new Date(cached.fetched_at).getTime()
     if (age < CACHE_TTL_MS) {
+      // Recalculer views à partir des données cachées
+      const views = (cached.plays && cached.plays > 0)
+        ? cached.plays
+        : (cached.impressions || 0)
       return NextResponse.json({
         impressions: cached.impressions,
         reach: cached.reach,
@@ -35,6 +39,8 @@ export async function GET(
         video_views: cached.video_views,
         plays: cached.plays,
         shares: cached.shares,
+        views,
+        follows: cached.follows || 0,
         _cached: true,
       })
     }
@@ -54,6 +60,7 @@ export async function GET(
     video_views: insights.video_views || 0,
     plays: insights.plays || 0,
     shares: insights.shares || 0,
+    follows: insights.follows || 0,
     fetched_at: new Date().toISOString(),
   }, { onConflict: 'post_id' })
 
