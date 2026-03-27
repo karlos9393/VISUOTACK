@@ -56,9 +56,8 @@ export async function upsertSetterLog(formData: FormData) {
 
   if (error) return { error: error.message }
 
-  revalidatePath('/pipeline/setting')
-  revalidatePath('/pipeline')
-  revalidatePath('/')
+  revalidatePath('/crm-tracker/setting')
+  revalidatePath('/crm-tracker')
   return { success: true, date: result.data.date, message: 'Setting du jour enregistré ✓' }
 }
 
@@ -95,7 +94,7 @@ export async function updateSetterLogInline(logDate: string, formData: FormData)
 
   if (error) return { error: error.message }
 
-  revalidatePath('/pipeline')
+  revalidatePath('/crm-tracker')
   return { success: true }
 }
 
@@ -112,8 +111,8 @@ export async function deleteSetterLog(logDate: string, logUserId: string) {
 
   if (error) return { error: error.message }
 
-  revalidatePath('/pipeline')
-  revalidatePath('/pipeline/setting')
+  revalidatePath('/crm-tracker')
+  revalidatePath('/crm-tracker/setting')
   return { success: true }
 }
 

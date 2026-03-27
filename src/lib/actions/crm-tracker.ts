@@ -53,7 +53,7 @@ export async function upsertCrmEntry(formData: FormData) {
 
   revalidatePath('/crm-tracker')
   revalidatePath('/crm-tracker/setting')
-  revalidatePath('/pipeline')
+  revalidatePath('/crm-tracker')
   return { success: true, date: result.data.date }
 }
 
@@ -114,7 +114,7 @@ export async function upsertCrmEntryInline(
   }
 
   revalidatePath('/crm-tracker')
-  revalidatePath('/pipeline')
+  revalidatePath('/crm-tracker')
   return { success: true }
 }
 

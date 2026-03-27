@@ -27,7 +27,7 @@ export function SetterReminderEmail({ firstName }: { firstName: string }) {
         Bonsoir {firstName}, n&apos;oublie pas de remplir ton setting du jour avant de dormir.
       </p>
       <a
-        href={`${baseUrl}/pipeline/setting`}
+        href={`${baseUrl}/crm-tracker/setting`}
         style={{
           display: 'inline-block',
           backgroundColor: '#2563eb',

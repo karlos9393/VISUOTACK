@@ -43,15 +43,15 @@ export async function middleware(request: NextRequest) {
     if (user && pathname.startsWith('/login')) {
       const role = await getUserRole(supabase, user.id)
       const url = request.nextUrl.clone()
-      url.pathname = role === 'admin' ? '/pipeline' : '/pipeline/setting'
+      url.pathname = role === 'setter' ? '/crm-tracker/setting' : '/crm-tracker'
       return NextResponse.redirect(url)
     }
 
-    // Authentifié sur / → redirection selon rôle
-    if (user && pathname === '/') {
+    // Authentifié sur / ou anciennes routes pipeline → redirection
+    if (user && (pathname === '/' || pathname.startsWith('/pipeline'))) {
       const role = await getUserRole(supabase, user.id)
       const url = request.nextUrl.clone()
-      url.pathname = role === 'admin' ? '/pipeline' : '/pipeline/setting'
+      url.pathname = role === 'setter' ? '/crm-tracker/setting' : '/crm-tracker'
       return NextResponse.redirect(url)
     }
 
@@ -64,7 +64,7 @@ export async function middleware(request: NextRequest) {
         const role = await getUserRole(supabase, user.id)
         if (role !== 'admin') {
           const url = request.nextUrl.clone()
-          url.pathname = '/pipeline/setting'
+          url.pathname = '/crm-tracker/setting'
           return NextResponse.redirect(url)
         }
       }
