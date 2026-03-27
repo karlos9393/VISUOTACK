@@ -195,8 +195,9 @@ export function CrmTrackerPage({
   }
 
   function handleSetterChange(setterId: string) {
-    // No re-fetch needed — data already includes all setters, filtering is client-side
     setSelectedSetter(setterId)
+    // Re-fetch pour avoir les données les plus récentes (un autre setter a pu saisir entre-temps)
+    fetchData(currentDate, viewMode)
   }
 
   const handleCellChange = useCallback(

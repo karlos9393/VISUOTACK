@@ -86,7 +86,6 @@ function buildWeeksForMonth(
 
 export function CrmPipelineTable({
   currentUserId,
-  currentUserRole,
   setters,
   initialEntries,
   initialYear,
@@ -121,8 +120,11 @@ export function CrmPipelineTable({
   }
 
   function handleSetterChange(setterId: string) {
-    // No re-fetch needed — data already includes all setters, filtering is client-side
     setSelectedSetter(setterId)
+    startTransition(async () => {
+      const data = await getCrmEntriesForMonth(year, month)
+      setEntries(data as CrmDailyEntry[])
+    })
   }
 
   const monthLabel = format(new Date(year, month - 1, 1), 'MMMM yyyy', { locale: fr })
