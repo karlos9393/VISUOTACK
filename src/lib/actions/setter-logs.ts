@@ -15,7 +15,7 @@ const setterLogSchema = z.object({
 })
 
 export async function upsertSetterLog(formData: FormData) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Non authentifié' }
 
@@ -62,7 +62,7 @@ export async function upsertSetterLog(formData: FormData) {
 }
 
 export async function getSetterLogForDate(date: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
@@ -77,7 +77,7 @@ export async function getSetterLogForDate(date: string) {
 }
 
 export async function updateSetterLogInline(logDate: string, formData: FormData) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Non authentifié' }
 
@@ -99,9 +99,22 @@ export async function updateSetterLogInline(logDate: string, formData: FormData)
 }
 
 export async function deleteSetterLog(logDate: string, logUserId: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Non authentifié' }
+
+  // Vérifier que l'utilisateur est propriétaire ou admin/manager
+  if (user.id !== logUserId) {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile || !['admin', 'manager'].includes(profile.role)) {
+      return { error: 'Non autorisé' }
+    }
+  }
 
   const { error } = await supabase
     .from('setter_logs')
@@ -124,7 +137,7 @@ export interface SetterStats {
 }
 
 export async function getSetterStats(): Promise<SetterStats | null> {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 

@@ -108,18 +108,12 @@ export async function getMediaInsights(mediaId: string, mediaType: string): Prom
     const res = await fetch(url, { cache: 'no-store' })
 
     if (!res.ok) {
-      const errorBody = await res.text()
-      console.error(`[getMediaInsights] HTTP ${res.status} for ${mediaId} (${mediaType}): ${errorBody}`)
       return {}
     }
 
     const data = await res.json()
 
-    // Debug: voir la structure exacte retournée par l'API Meta
-    console.log(`[getMediaInsights] ${mediaId} (${mediaType}):`, JSON.stringify(data, null, 2))
-
     if (data.error) {
-      console.error(`Insights error for ${mediaId}:`, data.error)
       return {}
     }
 

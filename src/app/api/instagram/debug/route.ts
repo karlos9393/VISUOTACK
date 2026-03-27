@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 const BASE_URL = 'https://graph.facebook.com/v22.0'
 
 export async function GET() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })

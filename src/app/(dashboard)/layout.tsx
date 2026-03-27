@@ -13,7 +13,7 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   let user = null
   try {
@@ -52,7 +52,7 @@ export default async function DashboardLayout({
           id: user.id,
           email: user.email!,
           full_name: user.email!.split('@')[0],
-          role: 'admin',
+          role: 'setter',
         })
         .select()
         .single()

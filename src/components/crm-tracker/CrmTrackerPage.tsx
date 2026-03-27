@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useTransition } from 'react'
+import { useState, useMemo, useCallback, useTransition, useRef } from 'react'
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   eachDayOfInterval, format, getWeek,
@@ -77,6 +77,8 @@ function buildWeeksForMonth(
         fup_envoyes: entry?.fup_envoyes ?? 0,
         reponses_fup: entry?.reponses_fup ?? 0,
         rdv_bookes: entry?.rdv_bookes ?? 0,
+        updater: entry?.updater ?? null,
+        updated_at: entry?.updated_at ?? '',
       }
     })
     weeks.push({ weekNumber: weekIdx, days })
@@ -104,6 +106,8 @@ function buildWeekDays(refDate: Date, entries: CrmDailyEntry[]): DayData[] {
       fup_envoyes: entry?.fup_envoyes ?? 0,
       reponses_fup: entry?.reponses_fup ?? 0,
       rdv_bookes: entry?.rdv_bookes ?? 0,
+      updater: entry?.updater ?? null,
+      updated_at: entry?.updated_at ?? '',
     }
   })
 }
@@ -144,6 +148,7 @@ export function CrmTrackerPage({
   }, [viewMode, currentDate])
 
   const readOnly = isAdmin && selectedSetter !== currentUserId
+  const debounceTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
   // Fetch data for current period
   async function fetchData(setter: string, date: Date, mode: ViewMode) {
@@ -212,15 +217,27 @@ export function CrmTrackerPage({
             rdv_bookes: 0,
             created_at: '',
             updated_at: '',
+            updated_by: null,
             [field]: value,
           },
         ]
       })
 
-      const result = await upsertCrmEntryInline(selectedSetter, date, field, value)
-      if (result.error) {
-        toast(result.error, 'error')
-      }
+      // Debounce server call per (date, field) key
+      const key = `${date}:${field}`
+      const existing = debounceTimers.current.get(key)
+      if (existing) clearTimeout(existing)
+
+      return new Promise<void>((resolve) => {
+        debounceTimers.current.set(key, setTimeout(async () => {
+          debounceTimers.current.delete(key)
+          const result = await upsertCrmEntryInline(selectedSetter, date, field, value)
+          if (result.error) {
+            toast(result.error, 'error')
+          }
+          resolve()
+        }, 300))
+      })
     },
     [selectedSetter, toast]
   )
@@ -264,11 +281,11 @@ export function CrmTrackerPage({
       {/* Tableau */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
         {isPending && (
-          <div className="px-4 py-2 bg-blue-50 text-blue-600 text-xs font-medium">
+          <div role="status" aria-live="polite" className="px-4 py-2 bg-blue-50 text-blue-600 text-xs font-medium">
             Chargement...
           </div>
         )}
-        <table className="w-full min-w-[900px]">
+        <table className="w-full min-w-[1000px]">
           <thead>
             <tr className="bg-gray-800 text-white text-xs uppercase tracking-wider">
               <th className="px-3 py-3 text-left font-medium w-24">Semaine</th>
@@ -278,6 +295,7 @@ export function CrmTrackerPage({
               <th className="px-3 py-3 text-center font-medium">FUP envoy&eacute;s</th>
               <th className="px-3 py-3 text-center font-medium">R&eacute;p. FUP</th>
               <th className="px-3 py-3 text-center font-medium">RDV book&eacute;s</th>
+              {isAdmin && <th className="px-2 py-3 text-center font-medium">Par</th>}
               <th className="w-2 bg-gray-700" />
               <th className="px-3 py-3 text-center font-medium bg-gray-700">% R&eacute;p.</th>
               <th className="px-3 py-3 text-center font-medium bg-gray-700">% R&eacute;p. FUP</th>
@@ -293,6 +311,7 @@ export function CrmTrackerPage({
                   weekNumber={week.weekNumber}
                   days={week.days}
                   readOnly={readOnly}
+                  showParColumn={isAdmin}
                   onCellChange={handleCellChange}
                 />
               ))
@@ -304,11 +323,12 @@ export function CrmTrackerPage({
                     day={day}
                     weekLabel={i === 0 ? `Semaine ${weekNumber}` : ''}
                     readOnly={readOnly}
+                    showParColumn={isAdmin}
                     onCellChange={handleCellChange}
                   />
                 ))}
                 {weekDays.length > 0 && (
-                  <TotalRow days={weekDays} label={`Total S${weekNumber}`} />
+                  <TotalRow days={weekDays} label={`Total S${weekNumber}`} showParColumn={isAdmin} />
                 )}
               </>
             )}

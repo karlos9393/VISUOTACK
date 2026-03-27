@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast'
@@ -28,6 +28,16 @@ export function EditLogModal({ day, onClose }: EditLogModalProps) {
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const { toast } = useToast()
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    modalRef.current?.focus()
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
 
   async function handleSave(formData: FormData) {
     setLoading(true)
@@ -81,7 +91,7 @@ export function EditLogModal({ day, onClose }: EditLogModalProps) {
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="bg-white rounded-xl border border-gray-200 shadow-xl p-6 w-full max-w-md">
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-label={`Modifier le log du ${dateLabel}`} tabIndex={-1} className="bg-white rounded-xl border border-gray-200 shadow-xl p-6 w-full max-w-md focus:outline-none">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-base font-semibold text-gray-900">
             Modifier le log du {dateLabel}

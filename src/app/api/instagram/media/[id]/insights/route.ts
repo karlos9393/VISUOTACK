@@ -2,21 +2,27 @@ import { NextResponse, NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getMediaInsights } from '@/lib/services/instagram'
+import { rateLimit } from '@/lib/rate-limit'
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000 // 6 heures
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = createClient()
+  const { id } = await params
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
+  if (!rateLimit(user.id, 60, 60_000)) {
+    return NextResponse.json({ error: 'Trop de requêtes' }, { status: 429 })
+  }
+
   const mediaType = request.nextUrl.searchParams.get('media_type') || 'IMAGE'
-  const postId = params.id
+  const postId = id
 
   // Vérifier le cache
   const { data: cached } = await supabase

@@ -14,7 +14,7 @@ const revenueSchema = z.object({
 })
 
 export async function createRevenueEntry(formData: FormData) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Non authentifié' }
 

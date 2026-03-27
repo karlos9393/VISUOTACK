@@ -5,6 +5,7 @@ import type { DayData } from './DayRow'
 interface TotalRowProps {
   days: DayData[]
   label: string
+  showParColumn?: boolean
 }
 
 function average(values: (number | null)[]): number | null {
@@ -82,7 +83,7 @@ function getMetricColor(metric: MetricType, value: number | null): string {
   }
 }
 
-export function TotalRow({ days, label }: TotalRowProps) {
+export function TotalRow({ days, label, showParColumn = false }: TotalRowProps) {
   const totals = calcWeekTotals(days)
 
   return (
@@ -94,6 +95,7 @@ export function TotalRow({ days, label }: TotalRowProps) {
       <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.fup_envoyes}</td>
       <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.reponses_fup}</td>
       <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.rdv_bookes}</td>
+      {showParColumn && <td />}
       <td className="w-2" />
       <TotalMetricCell value={formatPct(totals.avg_pct_reponse)} color={getMetricColor('pct_reponse', totals.avg_pct_reponse)} />
       <TotalMetricCell value={formatPct(totals.avg_pct_reponse_fup)} color={getMetricColor('pct_reponse_fup', totals.avg_pct_reponse_fup)} />

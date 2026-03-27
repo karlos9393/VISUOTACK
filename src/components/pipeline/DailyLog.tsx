@@ -99,6 +99,7 @@ export function DailyLog({ days, onEdit }: DailyLogProps) {
                 <button
                   onClick={() => onEdit(day)}
                   className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                  aria-label={`Modifier le log du ${day.dayName}`}
                 >
                   Modifier
                 </button>

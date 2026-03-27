@@ -7,12 +7,13 @@ import { fr } from 'date-fns/locale'
 import { CalendarGrid } from '@/components/contenu/calendar-grid'
 
 interface PageProps {
-  searchParams: { month?: string; platform?: string }
+  searchParams: Promise<{ month?: string; platform?: string }>
 }
 
 export default async function CalendrierPage({ searchParams }: PageProps) {
-  const monthOffset = Number(searchParams.month || 0)
-  const platformFilter = searchParams.platform || 'all'
+  const resolvedParams = await searchParams
+  const monthOffset = Number(resolvedParams.month || 0)
+  const platformFilter = resolvedParams.platform || 'all'
   const now = new Date()
   const targetMonth = monthOffset > 0
     ? addMonths(now, monthOffset)
@@ -26,7 +27,7 @@ export default async function CalendrierPage({ searchParams }: PageProps) {
   const calStart = startOfWeek(monthStart, { weekStartsOn: 1 })
   const calEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
 
-  const supabase = createClient()
+  const supabase = await createClient()
 
   let query = supabase
     .from('content_posts')

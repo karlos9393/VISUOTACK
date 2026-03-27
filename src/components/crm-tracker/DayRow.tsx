@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
+import { UserInitials } from './UserInitials'
 
 export interface DayData {
   date: string
@@ -12,12 +13,15 @@ export interface DayData {
   fup_envoyes: number
   reponses_fup: number
   rdv_bookes: number
+  updater?: { full_name: string | null; email: string } | null
+  updated_at?: string
 }
 
 interface DayRowProps {
   day: DayData
   weekLabel?: string
   readOnly?: boolean
+  showParColumn?: boolean
   onCellChange: (date: string, field: string, value: number) => void
 }
 
@@ -38,7 +42,7 @@ function calcMetrics(row: DayData) {
   }
 }
 
-export function DayRow({ day, weekLabel, readOnly = false, onCellChange }: DayRowProps) {
+export function DayRow({ day, weekLabel, readOnly = false, showParColumn = false, onCellChange }: DayRowProps) {
   const metrics = calcMetrics(day)
   const dateObj = new Date(day.date + 'T00:00:00')
   const dayName = format(dateObj, 'EEE', { locale: fr })
@@ -58,6 +62,17 @@ export function DayRow({ day, weekLabel, readOnly = false, onCellChange }: DayRo
       <EditableCell field="fup_envoyes" value={day.fup_envoyes} date={day.date} readOnly={readOnly} onChange={onCellChange} />
       <EditableCell field="reponses_fup" value={day.reponses_fup} date={day.date} readOnly={readOnly} onChange={onCellChange} />
       <EditableCell field="rdv_bookes" value={day.rdv_bookes} date={day.date} readOnly={readOnly} onChange={onCellChange} />
+      {showParColumn && (
+        day.updater ? (
+          <UserInitials
+            fullName={day.updater.full_name}
+            email={day.updater.email}
+            updatedAt={day.updated_at || ''}
+          />
+        ) : (
+          <td className="px-2 py-2 text-center text-gray-300 text-xs">&mdash;</td>
+        )
+      )}
       <td className="w-2" />
       <MetricCell value={metrics.pct_reponse} />
       <MetricCell value={metrics.pct_reponse_fup} />
@@ -97,8 +112,11 @@ function EditableCell({
     setEditing(false)
     if (newVal !== value) {
       setSaving(true)
-      onChange(date, field, newVal)
-      setSaving(false)
+      try {
+        await onChange(date, field, newVal)
+      } finally {
+        setSaving(false)
+      }
     }
   }
 

@@ -15,7 +15,7 @@ const crmEntrySchema = z.object({
 })
 
 export async function upsertCrmEntry(formData: FormData) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Non authentifié' }
 
@@ -63,7 +63,7 @@ export async function upsertCrmEntryInline(
   field: string,
   value: number
 ) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Non authentifié' }
 
@@ -119,7 +119,7 @@ export async function upsertCrmEntryInline(
 }
 
 export async function getCrmEntriesForMonth(setterId: string, year: number, month: number) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
@@ -130,7 +130,7 @@ export async function getCrmEntriesForMonth(setterId: string, year: number, mont
 
   const { data } = await supabase
     .from('crm_daily_entries')
-    .select('*')
+    .select('*, updater:updated_by(full_name, email)')
     .eq('setter_id', setterId)
     .gte('date', startDate)
     .lt('date', endDate)
@@ -140,13 +140,13 @@ export async function getCrmEntriesForMonth(setterId: string, year: number, mont
 }
 
 export async function getCrmEntriesForDateRange(setterId: string, startDate: string, endDate: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
   const { data } = await supabase
     .from('crm_daily_entries')
-    .select('*')
+    .select('*, updater:updated_by(full_name, email)')
     .eq('setter_id', setterId)
     .gte('date', startDate)
     .lte('date', endDate)
@@ -156,7 +156,7 @@ export async function getCrmEntriesForDateRange(setterId: string, startDate: str
 }
 
 export async function getCrmEntryForDate(date: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
@@ -182,7 +182,7 @@ export async function getSetters() {
 }
 
 export async function getCurrentUserProfile() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 

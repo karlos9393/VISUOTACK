@@ -7,7 +7,7 @@ import { CrmTrackerPage } from '@/components/crm-tracker/CrmTrackerPage'
 export const dynamic = 'force-dynamic'
 
 export default async function CrmTrackerRoute() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
@@ -41,7 +41,7 @@ export default async function CrmTrackerRoute() {
 
   const { data: entries } = await supabase
     .from('crm_daily_entries')
-    .select('*')
+    .select('*, updater:updated_by(full_name, email)')
     .eq('setter_id', profile.id)
     .gte('date', format(weekStart, 'yyyy-MM-dd'))
     .lte('date', format(weekEnd, 'yyyy-MM-dd'))

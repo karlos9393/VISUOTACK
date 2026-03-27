@@ -38,6 +38,8 @@ export interface CrmDailyEntry {
   rdv_bookes: number
   created_at: string
   updated_at: string
+  updated_by: string | null
+  updater?: { full_name: string | null; email: string } | null
 }
 
 export type Platform = 'instagram' | 'youtube' | 'tiktok'

@@ -14,7 +14,7 @@ const contentPostSchema = z.object({
 })
 
 export async function createContentPost(formData: FormData) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Non authentifié' }
 
@@ -56,7 +56,7 @@ export async function createContentPost(formData: FormData) {
 }
 
 export async function updateContentPost(id: string, formData: FormData) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Non authentifié' }
 
@@ -94,7 +94,7 @@ export async function updateContentPost(id: string, formData: FormData) {
 }
 
 export async function updatePostStats(id: string, formData: FormData) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { error } = await supabase
     .from('content_posts')
