@@ -18,6 +18,7 @@ import {
   getCrmEntriesForDateRange,
 } from '@/lib/actions/crm-tracker'
 import { useToast } from '@/components/ui/toast'
+import { CrmLegend } from './CrmLegend'
 
 interface SetterOption {
   id: string
@@ -320,6 +321,9 @@ export function CrmTrackerPage({
           </div>
         )}
       </div>
+
+      {/* Légende couleurs */}
+      <CrmLegend />
     </div>
   )
 }
