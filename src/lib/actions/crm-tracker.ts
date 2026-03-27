@@ -139,6 +139,22 @@ export async function getCrmEntriesForMonth(setterId: string, year: number, mont
   return data || []
 }
 
+export async function getCrmEntriesForDateRange(setterId: string, startDate: string, endDate: string) {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data } = await supabase
+    .from('crm_daily_entries')
+    .select('*')
+    .eq('setter_id', setterId)
+    .gte('date', startDate)
+    .lte('date', endDate)
+    .order('date', { ascending: true })
+
+  return data || []
+}
+
 export async function getCrmEntryForDate(date: string) {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()

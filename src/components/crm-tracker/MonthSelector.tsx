@@ -1,26 +1,49 @@
 'use client'
 
-import { format, addMonths, subMonths } from 'date-fns'
+import {
+  format, addMonths, subMonths, addWeeks, subWeeks,
+  startOfWeek, endOfWeek, isSameMonth,
+} from 'date-fns'
 import { fr } from 'date-fns/locale'
 
-interface MonthSelectorProps {
-  year: number
-  month: number
-  onChange: (year: number, month: number) => void
+type ViewMode = 'week' | 'month'
+
+interface PeriodSelectorProps {
+  viewMode: ViewMode
+  /** En mode month : 1er du mois. En mode week : n'importe quel jour de la semaine. */
+  currentDate: Date
+  onNavigate: (newDate: Date) => void
 }
 
-export function MonthSelector({ year, month, onChange }: MonthSelectorProps) {
-  const current = new Date(year, month - 1, 1)
-  const label = format(current, 'MMMM yyyy', { locale: fr })
+function formatWeekLabel(date: Date): string {
+  const start = startOfWeek(date, { weekStartsOn: 1 })
+  const end = endOfWeek(date, { weekStartsOn: 1 })
+
+  if (isSameMonth(start, end)) {
+    return `Lun. ${format(start, 'd')} \u2192 Dim. ${format(end, 'd MMM yyyy', { locale: fr })}`
+  }
+  return `Lun. ${format(start, 'd MMM', { locale: fr })} \u2192 Dim. ${format(end, 'd MMM yyyy', { locale: fr })}`
+}
+
+export function PeriodSelector({ viewMode, currentDate, onNavigate }: PeriodSelectorProps) {
+  const label = viewMode === 'month'
+    ? format(currentDate, 'MMMM yyyy', { locale: fr })
+    : formatWeekLabel(currentDate)
 
   function goPrev() {
-    const prev = subMonths(current, 1)
-    onChange(prev.getFullYear(), prev.getMonth() + 1)
+    if (viewMode === 'month') {
+      onNavigate(subMonths(currentDate, 1))
+    } else {
+      onNavigate(subWeeks(currentDate, 1))
+    }
   }
 
   function goNext() {
-    const next = addMonths(current, 1)
-    onChange(next.getFullYear(), next.getMonth() + 1)
+    if (viewMode === 'month') {
+      onNavigate(addMonths(currentDate, 1))
+    } else {
+      onNavigate(addWeeks(currentDate, 1))
+    }
   }
 
   return (
@@ -31,7 +54,7 @@ export function MonthSelector({ year, month, onChange }: MonthSelectorProps) {
       >
         <ChevronLeftIcon className="w-5 h-5" />
       </button>
-      <span className="text-lg font-semibold text-gray-900 capitalize min-w-[180px] text-center">
+      <span className="text-sm sm:text-base font-semibold text-gray-900 capitalize min-w-[180px] text-center">
         {label}
       </span>
       <button

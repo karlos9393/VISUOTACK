@@ -5,12 +5,18 @@ import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   eachDayOfInterval, format, getWeek,
 } from 'date-fns'
-import { MonthSelector } from './MonthSelector'
+import { PeriodSelector } from './MonthSelector'
+import { ViewToggle, type ViewMode } from './ViewToggle'
 import { SetterSelector } from './SetterSelector'
 import { WeekGroup } from './WeekGroup'
-import type { DayData } from './DayRow'
+import { DayRow, type DayData } from './DayRow'
+import { TotalRow } from './TotalRow'
 import type { CrmDailyEntry } from '@/lib/types'
-import { upsertCrmEntryInline, getCrmEntriesForMonth } from '@/lib/actions/crm-tracker'
+import {
+  upsertCrmEntryInline,
+  getCrmEntriesForMonth,
+  getCrmEntriesForDateRange,
+} from '@/lib/actions/crm-tracker'
 import { useToast } from '@/components/ui/toast'
 
 interface SetterOption {
@@ -25,8 +31,6 @@ interface CrmTrackerPageProps {
   currentUserRole: string
   setters: SetterOption[]
   initialEntries: CrmDailyEntry[]
-  initialYear: number
-  initialMonth: number
 }
 
 interface WeekData {
@@ -41,14 +45,10 @@ function buildWeeksForMonth(
 ): WeekData[] {
   const monthStart = startOfMonth(new Date(year, month - 1, 1))
   const monthEnd = endOfMonth(monthStart)
-
-  // Obtenir tous les lundis → dimanches qui chevauchent le mois
   const firstWeekStart = startOfWeek(monthStart, { weekStartsOn: 1 })
   const lastWeekEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
-
   const allDays = eachDayOfInterval({ start: firstWeekStart, end: lastWeekEnd })
 
-  // Grouper par semaine
   const weekMap = new Map<number, Date[]>()
   for (const day of allDays) {
     const wn = getWeek(day, { weekStartsOn: 1 })
@@ -56,20 +56,14 @@ function buildWeeksForMonth(
     weekMap.get(wn)!.push(day)
   }
 
-  // Entrées indexées par date
   const entryMap = new Map<string, CrmDailyEntry>()
-  for (const e of entries) {
-    entryMap.set(e.date, e)
-  }
+  for (const e of entries) entryMap.set(e.date, e)
 
-  // Construire les semaines
   const weeks: WeekData[] = []
   let weekIdx = 1
-  const sortedWeeks = Array.from(weekMap.entries()).sort((a, b) => {
-    const aFirst = a[1][0].getTime()
-    const bFirst = b[1][0].getTime()
-    return aFirst - bFirst
-  })
+  const sortedWeeks = Array.from(weekMap.entries()).sort(
+    (a, b) => a[1][0].getTime() - b[1][0].getTime()
+  )
 
   for (const [, weekDays] of sortedWeeks) {
     const days: DayData[] = weekDays.map((d) => {
@@ -91,44 +85,107 @@ function buildWeeksForMonth(
   return weeks
 }
 
+function buildWeekDays(refDate: Date, entries: CrmDailyEntry[]): DayData[] {
+  const weekStart = startOfWeek(refDate, { weekStartsOn: 1 })
+  const weekEnd = endOfWeek(refDate, { weekStartsOn: 1 })
+  const days = eachDayOfInterval({ start: weekStart, end: weekEnd })
+
+  const entryMap = new Map<string, CrmDailyEntry>()
+  for (const e of entries) entryMap.set(e.date, e)
+
+  return days.map((d) => {
+    const dateStr = format(d, 'yyyy-MM-dd')
+    const entry = entryMap.get(dateStr)
+    return {
+      date: dateStr,
+      messages_envoyes: entry?.messages_envoyes ?? 0,
+      reponses: entry?.reponses ?? 0,
+      fup_envoyes: entry?.fup_envoyes ?? 0,
+      reponses_fup: entry?.reponses_fup ?? 0,
+      rdv_bookes: entry?.rdv_bookes ?? 0,
+    }
+  })
+}
+
 export function CrmTrackerPage({
   currentUserId,
   currentUserRole,
   setters,
   initialEntries,
-  initialYear,
-  initialMonth,
 }: CrmTrackerPageProps) {
   const isAdmin = ['admin', 'manager'].includes(currentUserRole)
   const [selectedSetter, setSelectedSetter] = useState(currentUserId)
-  const [year, setYear] = useState(initialYear)
-  const [month, setMonth] = useState(initialMonth)
+  const [viewMode, setViewMode] = useState<ViewMode>('week')
+  const [currentDate, setCurrentDate] = useState<Date>(new Date())
   const [entries, setEntries] = useState<CrmDailyEntry[]>(initialEntries)
   const [isPending, startTransition] = useTransition()
   const { toast } = useToast()
 
+  // Compute month year from currentDate for month mode
+  const year = currentDate.getFullYear()
+  const month = currentDate.getMonth() + 1
+
+  // Build data for current view
   const weeks = useMemo(
-    () => buildWeeksForMonth(year, month, entries),
-    [year, month, entries]
+    () => viewMode === 'month' ? buildWeeksForMonth(year, month, entries) : [],
+    [viewMode, year, month, entries]
   )
+
+  const weekDays = useMemo(
+    () => viewMode === 'week' ? buildWeekDays(currentDate, entries) : [],
+    [viewMode, currentDate, entries]
+  )
+
+  // Week number for week view label
+  const weekNumber = useMemo(() => {
+    if (viewMode !== 'week') return 0
+    return getWeek(currentDate, { weekStartsOn: 1 })
+  }, [viewMode, currentDate])
 
   const readOnly = isAdmin && selectedSetter !== currentUserId
 
-  async function handleMonthChange(newYear: number, newMonth: number) {
-    setYear(newYear)
-    setMonth(newMonth)
+  // Fetch data for current period
+  async function fetchData(setter: string, date: Date, mode: ViewMode) {
     startTransition(async () => {
-      const data = await getCrmEntriesForMonth(selectedSetter, newYear, newMonth)
-      setEntries(data as CrmDailyEntry[])
+      if (mode === 'month') {
+        const y = date.getFullYear()
+        const m = date.getMonth() + 1
+        const data = await getCrmEntriesForMonth(setter, y, m)
+        setEntries(data as CrmDailyEntry[])
+      } else {
+        const ws = startOfWeek(date, { weekStartsOn: 1 })
+        const we = endOfWeek(date, { weekStartsOn: 1 })
+        const data = await getCrmEntriesForDateRange(
+          setter,
+          format(ws, 'yyyy-MM-dd'),
+          format(we, 'yyyy-MM-dd')
+        )
+        setEntries(data as CrmDailyEntry[])
+      }
     })
+  }
+
+  function handleNavigate(newDate: Date) {
+    setCurrentDate(newDate)
+    fetchData(selectedSetter, newDate, viewMode)
+  }
+
+  function handleViewModeChange(mode: ViewMode) {
+    setViewMode(mode)
+    // When switching mode, refetch data for the new view
+    if (mode === 'month') {
+      // Ensure currentDate is 1st of month for consistency
+      const monthDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+      setCurrentDate(monthDate)
+      fetchData(selectedSetter, monthDate, mode)
+    } else {
+      fetchData(selectedSetter, currentDate, mode)
+    }
   }
 
   async function handleSetterChange(setterId: string) {
     setSelectedSetter(setterId)
-    startTransition(async () => {
-      const data = await getCrmEntriesForMonth(setterId, year, month)
-      setEntries(data as CrmDailyEntry[])
-    })
+    fetchData(setterId, currentDate, viewMode)
   }
 
   const handleCellChange = useCallback(
@@ -190,8 +247,17 @@ export function CrmTrackerPage({
               onChange={handleSetterChange}
             />
           )}
-          <MonthSelector year={year} month={month} onChange={handleMonthChange} />
         </div>
+      </div>
+
+      {/* Toggle + Navigation */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <ViewToggle value={viewMode} onChange={handleViewModeChange} />
+        <PeriodSelector
+          viewMode={viewMode}
+          currentDate={currentDate}
+          onNavigate={handleNavigate}
+        />
       </div>
 
       {/* Tableau */}
@@ -219,20 +285,38 @@ export function CrmTrackerPage({
             </tr>
           </thead>
           <tbody>
-            {weeks.map((week) => (
-              <WeekGroup
-                key={week.weekNumber}
-                weekNumber={week.weekNumber}
-                days={week.days}
-                readOnly={readOnly}
-                onCellChange={handleCellChange}
-              />
-            ))}
+            {viewMode === 'month' ? (
+              weeks.map((week) => (
+                <WeekGroup
+                  key={week.weekNumber}
+                  weekNumber={week.weekNumber}
+                  days={week.days}
+                  readOnly={readOnly}
+                  onCellChange={handleCellChange}
+                />
+              ))
+            ) : (
+              <>
+                {weekDays.map((day, i) => (
+                  <DayRow
+                    key={day.date}
+                    day={day}
+                    weekLabel={i === 0 ? `Semaine ${weekNumber}` : ''}
+                    readOnly={readOnly}
+                    onCellChange={handleCellChange}
+                  />
+                ))}
+                {weekDays.length > 0 && (
+                  <TotalRow days={weekDays} label={`Total S${weekNumber}`} />
+                )}
+              </>
+            )}
           </tbody>
         </table>
-        {weeks.length === 0 && (
+        {((viewMode === 'month' && weeks.length === 0) ||
+          (viewMode === 'week' && weekDays.length === 0)) && (
           <div className="px-6 py-12 text-center text-gray-400 text-sm">
-            Aucune donn&eacute;e pour ce mois
+            Aucune donn&eacute;e pour cette p&eacute;riode
           </div>
         )}
       </div>

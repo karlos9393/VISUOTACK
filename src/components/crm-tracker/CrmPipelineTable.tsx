@@ -6,7 +6,7 @@ import {
   eachDayOfInterval, format, getWeek,
 } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { MonthSelector } from './MonthSelector'
+import { PeriodSelector } from './MonthSelector'
 import { SetterSelector } from './SetterSelector'
 import { CrmKPICards } from './CrmKPICards'
 import { WeekGroup } from './WeekGroup'
@@ -104,7 +104,9 @@ export function CrmPipelineTable({
     [year, month, entries]
   )
 
-  async function handleMonthChange(newYear: number, newMonth: number) {
+  function handleMonthNavigate(newDate: Date) {
+    const newYear = newDate.getFullYear()
+    const newMonth = newDate.getMonth() + 1
     setYear(newYear)
     setMonth(newMonth)
     startTransition(async () => {
@@ -136,7 +138,11 @@ export function CrmPipelineTable({
               onChange={handleSetterChange}
             />
           )}
-          <MonthSelector year={year} month={month} onChange={handleMonthChange} />
+          <PeriodSelector
+            viewMode="month"
+            currentDate={new Date(year, month - 1, 1)}
+            onNavigate={handleMonthNavigate}
+          />
         </div>
       </div>
 

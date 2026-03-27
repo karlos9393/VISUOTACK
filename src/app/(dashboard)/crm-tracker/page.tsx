@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
+import { startOfWeek, endOfWeek, format } from 'date-fns'
 import { CrmTrackerPage } from '@/components/crm-tracker/CrmTrackerPage'
 
 export const dynamic = 'force-dynamic'
@@ -33,23 +34,17 @@ export default async function CrmTrackerRoute() {
     if (data) setters = data
   }
 
-  // Mois courant
+  // Semaine courante (vue par défaut = week)
   const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth() + 1
-
-  // Entrées du mois
-  const startDate = `${year}-${String(month).padStart(2, '0')}-01`
-  const endMonth = month === 12 ? 1 : month + 1
-  const endYear = month === 12 ? year + 1 : year
-  const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 })
+  const weekEnd = endOfWeek(now, { weekStartsOn: 1 })
 
   const { data: entries } = await supabase
     .from('crm_daily_entries')
     .select('*')
     .eq('setter_id', profile.id)
-    .gte('date', startDate)
-    .lt('date', endDate)
+    .gte('date', format(weekStart, 'yyyy-MM-dd'))
+    .lte('date', format(weekEnd, 'yyyy-MM-dd'))
     .order('date', { ascending: true })
 
   return (
@@ -58,8 +53,6 @@ export default async function CrmTrackerRoute() {
       currentUserRole={profile.role}
       setters={setters}
       initialEntries={entries || []}
-      initialYear={year}
-      initialMonth={month}
     />
   )
 }
