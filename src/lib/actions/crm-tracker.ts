@@ -33,32 +33,44 @@ export async function upsertCrmEntry(formData: FormData) {
     return { error: result.error.issues[0].message }
   }
 
-  const { error } = await supabase
+  // Donnée partagée : une seule entrée par date, on upsert sur le conflit date
+  const adminClient = createAdminClient()
+  const { data: existing } = await adminClient
     .from('crm_daily_entries')
-    .upsert(
-      {
-        setter_id: user.id,
-        date: result.data.date,
-        messages_envoyes: result.data.messages_envoyes,
-        reponses: result.data.reponses,
-        fup_envoyes: result.data.fup_envoyes,
-        reponses_fup: result.data.reponses_fup,
-        rdv_bookes: result.data.rdv_bookes,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'setter_id,date' }
-    )
+    .select('id')
+    .eq('date', result.data.date)
+    .single()
 
-  if (error) return { error: error.message }
+  const now = new Date().toISOString()
+  const values = {
+    messages_envoyes: result.data.messages_envoyes,
+    reponses: result.data.reponses,
+    fup_envoyes: result.data.fup_envoyes,
+    reponses_fup: result.data.reponses_fup,
+    rdv_bookes: result.data.rdv_bookes,
+    updated_at: now,
+    updated_by: user.id,
+  }
+
+  if (existing) {
+    const { error } = await adminClient
+      .from('crm_daily_entries')
+      .update(values)
+      .eq('id', existing.id)
+    if (error) return { error: error.message }
+  } else {
+    const { error } = await adminClient
+      .from('crm_daily_entries')
+      .insert({ setter_id: user.id, date: result.data.date, ...values })
+    if (error) return { error: error.message }
+  }
 
   revalidatePath('/crm-tracker')
   revalidatePath('/crm-tracker/setting')
-  revalidatePath('/crm-tracker')
   return { success: true, date: result.data.date }
 }
 
 export async function upsertCrmEntryInline(
-  setterId: string,
   date: string,
   field: string,
   value: number
@@ -67,53 +79,40 @@ export async function upsertCrmEntryInline(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Non authentifié' }
 
-  // Vérifier que l'utilisateur modifie ses propres données (ou est admin)
-  const adminClient = createAdminClient()
-  const { data: profile } = await adminClient
-    .from('users')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (user.id !== setterId && !['admin', 'manager'].includes(profile?.role || '')) {
-    return { error: 'Non autorisé' }
-  }
-
   const validFields = ['messages_envoyes', 'reponses', 'fup_envoyes', 'reponses_fup', 'rdv_bookes']
   if (!validFields.includes(field)) {
     return { error: 'Champ invalide' }
   }
 
-  // Upsert : crée l'entrée si elle n'existe pas, sinon met à jour le champ
-  const { data: existing } = await supabase
+  // Donnée partagée : une seule entrée par date
+  const adminClient = createAdminClient()
+  const { data: existing } = await adminClient
     .from('crm_daily_entries')
     .select('id')
-    .eq('setter_id', setterId)
     .eq('date', date)
     .single()
 
-  if (existing) {
-    const { error } = await supabase
-      .from('crm_daily_entries')
-      .update({ [field]: value, updated_at: new Date().toISOString() })
-      .eq('setter_id', setterId)
-      .eq('date', date)
+  const now = new Date().toISOString()
 
+  if (existing) {
+    const { error } = await adminClient
+      .from('crm_daily_entries')
+      .update({ [field]: value, updated_at: now, updated_by: user.id })
+      .eq('id', existing.id)
     if (error) return { error: error.message }
   } else {
-    const { error } = await supabase
+    const { error } = await adminClient
       .from('crm_daily_entries')
       .insert({
-        setter_id: setterId,
+        setter_id: user.id,
         date,
         [field]: value,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
+        updated_by: user.id,
       })
-
     if (error) return { error: error.message }
   }
 
-  revalidatePath('/crm-tracker')
   revalidatePath('/crm-tracker')
   return { success: true }
 }
@@ -161,7 +160,6 @@ export async function getCrmEntryForDate(date: string) {
   const { data } = await supabase
     .from('crm_daily_entries')
     .select('*')
-    .eq('setter_id', user.id)
     .eq('date', date)
     .single()
 

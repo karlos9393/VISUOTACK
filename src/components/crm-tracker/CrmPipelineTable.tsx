@@ -7,24 +7,13 @@ import {
 } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { PeriodSelector } from './MonthSelector'
-import { SetterSelector } from './SetterSelector'
 import { CrmKPICards } from './CrmKPICards'
 import { WeekGroup } from './WeekGroup'
 import type { DayData } from './DayRow'
 import type { CrmDailyEntry } from '@/lib/types'
 import { getCrmEntriesForMonth } from '@/lib/actions/crm-tracker'
 
-interface SetterOption {
-  id: string
-  full_name: string | null
-  email: string
-  role: string
-}
-
 interface CrmPipelineTableProps {
-  currentUserId: string
-  currentUserRole: string
-  setters: SetterOption[]
   initialEntries: CrmDailyEntry[]
   initialYear: number
   initialMonth: number
@@ -85,27 +74,18 @@ function buildWeeksForMonth(
 }
 
 export function CrmPipelineTable({
-  currentUserId,
-  setters,
   initialEntries,
   initialYear,
   initialMonth,
 }: CrmPipelineTableProps) {
-  const [selectedSetter, setSelectedSetter] = useState(currentUserId)
   const [year, setYear] = useState(initialYear)
   const [month, setMonth] = useState(initialMonth)
   const [entries, setEntries] = useState<CrmDailyEntry[]>(initialEntries)
   const [isPending, startTransition] = useTransition()
 
-  // Client-side filtering by selected setter
-  const filteredEntries = useMemo(
-    () => entries.filter(e => e.setter_id === selectedSetter),
-    [entries, selectedSetter]
-  )
-
   const weeks = useMemo(
-    () => buildWeeksForMonth(year, month, filteredEntries),
-    [year, month, filteredEntries]
+    () => buildWeeksForMonth(year, month, entries),
+    [year, month, entries]
   )
 
   function handleMonthNavigate(newDate: Date) {
@@ -119,14 +99,6 @@ export function CrmPipelineTable({
     })
   }
 
-  function handleSetterChange(setterId: string) {
-    setSelectedSetter(setterId)
-    startTransition(async () => {
-      const data = await getCrmEntriesForMonth(year, month)
-      setEntries(data as CrmDailyEntry[])
-    })
-  }
-
   const monthLabel = format(new Date(year, month - 1, 1), 'MMMM yyyy', { locale: fr })
 
   return (
@@ -134,22 +106,15 @@ export function CrmPipelineTable({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h2 className="text-lg font-semibold text-gray-900">Performance CRM</h2>
-        <div className="flex items-center gap-4">
-          <SetterSelector
-            setters={setters}
-            selectedId={selectedSetter}
-            onChange={handleSetterChange}
-          />
-          <PeriodSelector
-            viewMode="month"
-            currentDate={new Date(year, month - 1, 1)}
-            onNavigate={handleMonthNavigate}
-          />
-        </div>
+        <PeriodSelector
+          viewMode="month"
+          currentDate={new Date(year, month - 1, 1)}
+          onNavigate={handleMonthNavigate}
+        />
       </div>
 
       {/* KPI Cards */}
-      <CrmKPICards entries={filteredEntries} />
+      <CrmKPICards entries={entries} />
 
       {/* Tableau lecture seule */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">

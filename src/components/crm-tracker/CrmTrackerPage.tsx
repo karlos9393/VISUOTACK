@@ -7,7 +7,6 @@ import {
 } from 'date-fns'
 import { PeriodSelector } from './MonthSelector'
 import { ViewToggle, type ViewMode } from './ViewToggle'
-import { SetterSelector } from './SetterSelector'
 import { WeekGroup } from './WeekGroup'
 import { DayRow, type DayData } from './DayRow'
 import { TotalRow } from './TotalRow'
@@ -20,17 +19,8 @@ import {
 import { useToast } from '@/components/ui/toast'
 import { CrmLegend } from './CrmLegend'
 
-interface SetterOption {
-  id: string
-  full_name: string | null
-  email: string
-  role: string
-}
-
 interface CrmTrackerPageProps {
   currentUserId: string
-  currentUserRole: string
-  setters: SetterOption[]
   initialEntries: CrmDailyEntry[]
 }
 
@@ -114,49 +104,36 @@ function buildWeekDays(refDate: Date, entries: CrmDailyEntry[]): DayData[] {
 
 export function CrmTrackerPage({
   currentUserId,
-  currentUserRole,
-  setters,
   initialEntries,
 }: CrmTrackerPageProps) {
-  const isAdmin = ['admin', 'manager'].includes(currentUserRole)
-  const [selectedSetter, setSelectedSetter] = useState(currentUserId)
   const [viewMode, setViewMode] = useState<ViewMode>('week')
   const [currentDate, setCurrentDate] = useState<Date>(new Date())
   const [entries, setEntries] = useState<CrmDailyEntry[]>(initialEntries)
   const [isPending, startTransition] = useTransition()
   const { toast } = useToast()
 
-  // Compute month year from currentDate for month mode
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth() + 1
 
-  // Client-side filtering by selected setter
-  const filteredEntries = useMemo(
-    () => entries.filter(e => e.setter_id === selectedSetter),
-    [entries, selectedSetter]
-  )
-
-  // Build data for current view (uses filtered entries)
+  // Build data — une seule entrée par date, pas de filtre setter
   const weeks = useMemo(
-    () => viewMode === 'month' ? buildWeeksForMonth(year, month, filteredEntries) : [],
-    [viewMode, year, month, filteredEntries]
+    () => viewMode === 'month' ? buildWeeksForMonth(year, month, entries) : [],
+    [viewMode, year, month, entries]
   )
 
   const weekDays = useMemo(
-    () => viewMode === 'week' ? buildWeekDays(currentDate, filteredEntries) : [],
-    [viewMode, currentDate, filteredEntries]
+    () => viewMode === 'week' ? buildWeekDays(currentDate, entries) : [],
+    [viewMode, currentDate, entries]
   )
 
-  // Week number for week view label
   const weekNumber = useMemo(() => {
     if (viewMode !== 'week') return 0
     return getWeek(currentDate, { weekStartsOn: 1 })
   }, [viewMode, currentDate])
 
-  const readOnly = !isAdmin && selectedSetter !== currentUserId
   const debounceTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
-  // Fetch ALL entries for current period (no setter filter — client-side filtering)
+  // Fetch toutes les entrées pour la période
   async function fetchData(date: Date, mode: ViewMode) {
     startTransition(async () => {
       if (mode === 'month') {
@@ -183,9 +160,7 @@ export function CrmTrackerPage({
 
   function handleViewModeChange(mode: ViewMode) {
     setViewMode(mode)
-    // When switching mode, refetch data for the new view
     if (mode === 'month') {
-      // Ensure currentDate is 1st of month for consistency
       const monthDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
       setCurrentDate(monthDate)
       fetchData(monthDate, mode)
@@ -194,27 +169,21 @@ export function CrmTrackerPage({
     }
   }
 
-  function handleSetterChange(setterId: string) {
-    setSelectedSetter(setterId)
-    // Re-fetch pour avoir les données les plus récentes (un autre setter a pu saisir entre-temps)
-    fetchData(currentDate, viewMode)
-  }
-
   const handleCellChange = useCallback(
     async (date: string, field: string, value: number) => {
-      // Optimistic update (match by setter_id + date since entries include all setters)
+      // Optimistic update — une seule entrée par date
       setEntries((prev) => {
-        const existing = prev.find((e) => e.date === date && e.setter_id === selectedSetter)
+        const existing = prev.find((e) => e.date === date)
         if (existing) {
           return prev.map((e) =>
-            e.date === date && e.setter_id === selectedSetter ? { ...e, [field]: value } : e
+            e.date === date ? { ...e, [field]: value } : e
           )
         }
         return [
           ...prev,
           {
             id: '',
-            setter_id: selectedSetter,
+            setter_id: currentUserId,
             date,
             messages_envoyes: 0,
             reponses: 0,
@@ -237,7 +206,7 @@ export function CrmTrackerPage({
       return new Promise<void>((resolve) => {
         debounceTimers.current.set(key, setTimeout(async () => {
           debounceTimers.current.delete(key)
-          const result = await upsertCrmEntryInline(selectedSetter, date, field, value)
+          const result = await upsertCrmEntryInline(date, field, value)
           if (result.error) {
             toast(result.error, 'error')
           }
@@ -245,13 +214,8 @@ export function CrmTrackerPage({
         }, 300))
       })
     },
-    [selectedSetter, toast]
+    [currentUserId, toast]
   )
-
-  const setterLabel = useMemo(() => {
-    const s = setters.find((s) => s.id === selectedSetter)
-    return s?.full_name || s?.email || ''
-  }, [setters, selectedSetter])
 
   return (
     <div className="space-y-6">
@@ -260,15 +224,8 @@ export function CrmTrackerPage({
         <div>
           <h1 className="text-2xl font-bold text-gray-900">CRM Tracker</h1>
           <p className="text-gray-500 mt-1">
-            Suivi d&apos;activit&eacute; {setterLabel ? `\u2014 ${setterLabel}` : ''}
+            Suivi d&apos;activit&eacute; partag&eacute;
           </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <SetterSelector
-            setters={setters}
-            selectedId={selectedSetter}
-            onChange={handleSetterChange}
-          />
         </div>
       </div>
 
@@ -314,7 +271,7 @@ export function CrmTrackerPage({
                   key={week.weekNumber}
                   weekNumber={week.weekNumber}
                   days={week.days}
-                  readOnly={readOnly}
+                  readOnly={false}
                   showParColumn
                   onCellChange={handleCellChange}
                 />
@@ -326,7 +283,7 @@ export function CrmTrackerPage({
                     key={day.date}
                     day={day}
                     weekLabel={i === 0 ? `Semaine ${weekNumber}` : ''}
-                    readOnly={readOnly}
+                    readOnly={false}
                     showParColumn
                     onCellChange={handleCellChange}
                   />

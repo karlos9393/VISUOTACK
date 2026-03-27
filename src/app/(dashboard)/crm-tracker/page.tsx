@@ -22,14 +22,6 @@ export default async function CrmTrackerRoute() {
 
   if (!profile) redirect('/login')
 
-  // Liste des setters (visible par tous pour naviguer entre les données)
-  let setters = [{ id: profile.id, full_name: profile.full_name, email: profile.email, role: profile.role }]
-  const { data: allSetters } = await adminClient
-    .from('users')
-    .select('id, full_name, email, role')
-    .order('full_name', { ascending: true })
-  if (allSetters) setters = allSetters
-
   // Semaine courante (vue par défaut = week)
   const now = new Date()
   const weekStart = startOfWeek(now, { weekStartsOn: 1 })
@@ -45,8 +37,6 @@ export default async function CrmTrackerRoute() {
   return (
     <CrmTrackerPage
       currentUserId={profile.id}
-      currentUserRole={profile.role}
-      setters={setters}
       initialEntries={entries || []}
     />
   )
