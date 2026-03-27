@@ -13,6 +13,8 @@ interface SidebarProps {
 const navigation = [
   { name: 'Setting du jour', href: '/pipeline/setting', roles: ['admin', 'manager', 'setter'] as Role[], icon: ClipboardIcon },
   { name: 'Pipeline', href: '/pipeline', roles: ['admin', 'manager', 'setter'] as Role[], icon: FunnelIcon },
+  { name: 'CRM Setting', href: '/crm-tracker/setting', roles: ['admin', 'manager', 'setter'] as Role[], icon: CrmSettingIcon },
+  { name: 'CRM Tracker', href: '/crm-tracker', roles: ['admin', 'manager', 'setter'] as Role[], icon: CrmTrackerIcon },
   { name: 'Calendrier', href: '/contenu/calendrier', roles: ['admin'] as Role[], icon: CalendarIcon },
   { name: 'Performance', href: '/contenu/performance', roles: ['admin'] as Role[], icon: ChartIcon },
   { name: 'Admin', href: '/admin', roles: ['admin'] as Role[], icon: CogIcon },
@@ -95,6 +97,22 @@ function ChartIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  )
+}
+
+function CrmSettingIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+    </svg>
+  )
+}
+
+function CrmTrackerIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
     </svg>
   )
 }

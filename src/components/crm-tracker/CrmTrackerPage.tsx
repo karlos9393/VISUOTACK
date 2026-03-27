@@ -1,0 +1,241 @@
+'use client'
+
+import { useState, useMemo, useCallback, useTransition } from 'react'
+import {
+  startOfMonth, endOfMonth, startOfWeek, endOfWeek,
+  eachDayOfInterval, format, getWeek,
+} from 'date-fns'
+import { MonthSelector } from './MonthSelector'
+import { SetterSelector } from './SetterSelector'
+import { WeekGroup } from './WeekGroup'
+import type { DayData } from './DayRow'
+import type { CrmDailyEntry } from '@/lib/types'
+import { upsertCrmEntryInline, getCrmEntriesForMonth } from '@/lib/actions/crm-tracker'
+import { useToast } from '@/components/ui/toast'
+
+interface SetterOption {
+  id: string
+  full_name: string | null
+  email: string
+  role: string
+}
+
+interface CrmTrackerPageProps {
+  currentUserId: string
+  currentUserRole: string
+  setters: SetterOption[]
+  initialEntries: CrmDailyEntry[]
+  initialYear: number
+  initialMonth: number
+}
+
+interface WeekData {
+  weekNumber: number
+  days: DayData[]
+}
+
+function buildWeeksForMonth(
+  year: number,
+  month: number,
+  entries: CrmDailyEntry[]
+): WeekData[] {
+  const monthStart = startOfMonth(new Date(year, month - 1, 1))
+  const monthEnd = endOfMonth(monthStart)
+
+  // Obtenir tous les lundis → dimanches qui chevauchent le mois
+  const firstWeekStart = startOfWeek(monthStart, { weekStartsOn: 1 })
+  const lastWeekEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
+
+  const allDays = eachDayOfInterval({ start: firstWeekStart, end: lastWeekEnd })
+
+  // Grouper par semaine
+  const weekMap = new Map<number, Date[]>()
+  for (const day of allDays) {
+    const wn = getWeek(day, { weekStartsOn: 1 })
+    if (!weekMap.has(wn)) weekMap.set(wn, [])
+    weekMap.get(wn)!.push(day)
+  }
+
+  // Entrées indexées par date
+  const entryMap = new Map<string, CrmDailyEntry>()
+  for (const e of entries) {
+    entryMap.set(e.date, e)
+  }
+
+  // Construire les semaines
+  const weeks: WeekData[] = []
+  let weekIdx = 1
+  const sortedWeeks = Array.from(weekMap.entries()).sort((a, b) => {
+    const aFirst = a[1][0].getTime()
+    const bFirst = b[1][0].getTime()
+    return aFirst - bFirst
+  })
+
+  for (const [, weekDays] of sortedWeeks) {
+    const days: DayData[] = weekDays.map((d) => {
+      const dateStr = format(d, 'yyyy-MM-dd')
+      const entry = entryMap.get(dateStr)
+      return {
+        date: dateStr,
+        messages_envoyes: entry?.messages_envoyes ?? 0,
+        reponses: entry?.reponses ?? 0,
+        fup_envoyes: entry?.fup_envoyes ?? 0,
+        reponses_fup: entry?.reponses_fup ?? 0,
+        rdv_bookes: entry?.rdv_bookes ?? 0,
+      }
+    })
+    weeks.push({ weekNumber: weekIdx, days })
+    weekIdx++
+  }
+
+  return weeks
+}
+
+export function CrmTrackerPage({
+  currentUserId,
+  currentUserRole,
+  setters,
+  initialEntries,
+  initialYear,
+  initialMonth,
+}: CrmTrackerPageProps) {
+  const isAdmin = ['admin', 'manager'].includes(currentUserRole)
+  const [selectedSetter, setSelectedSetter] = useState(currentUserId)
+  const [year, setYear] = useState(initialYear)
+  const [month, setMonth] = useState(initialMonth)
+  const [entries, setEntries] = useState<CrmDailyEntry[]>(initialEntries)
+  const [isPending, startTransition] = useTransition()
+  const { toast } = useToast()
+
+  const weeks = useMemo(
+    () => buildWeeksForMonth(year, month, entries),
+    [year, month, entries]
+  )
+
+  const readOnly = isAdmin && selectedSetter !== currentUserId
+
+  async function handleMonthChange(newYear: number, newMonth: number) {
+    setYear(newYear)
+    setMonth(newMonth)
+    startTransition(async () => {
+      const data = await getCrmEntriesForMonth(selectedSetter, newYear, newMonth)
+      setEntries(data as CrmDailyEntry[])
+    })
+  }
+
+  async function handleSetterChange(setterId: string) {
+    setSelectedSetter(setterId)
+    startTransition(async () => {
+      const data = await getCrmEntriesForMonth(setterId, year, month)
+      setEntries(data as CrmDailyEntry[])
+    })
+  }
+
+  const handleCellChange = useCallback(
+    async (date: string, field: string, value: number) => {
+      // Optimistic update
+      setEntries((prev) => {
+        const existing = prev.find((e) => e.date === date)
+        if (existing) {
+          return prev.map((e) =>
+            e.date === date ? { ...e, [field]: value } : e
+          )
+        }
+        return [
+          ...prev,
+          {
+            id: '',
+            setter_id: selectedSetter,
+            date,
+            messages_envoyes: 0,
+            reponses: 0,
+            fup_envoyes: 0,
+            reponses_fup: 0,
+            rdv_bookes: 0,
+            created_at: '',
+            updated_at: '',
+            [field]: value,
+          },
+        ]
+      })
+
+      const result = await upsertCrmEntryInline(selectedSetter, date, field, value)
+      if (result.error) {
+        toast(result.error, 'error')
+      }
+    },
+    [selectedSetter, toast]
+  )
+
+  const setterLabel = useMemo(() => {
+    const s = setters.find((s) => s.id === selectedSetter)
+    return s?.full_name || s?.email || ''
+  }, [setters, selectedSetter])
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">CRM Tracker</h1>
+          <p className="text-gray-500 mt-1">
+            Suivi d&apos;activit&eacute; {isAdmin && setterLabel ? `\u2014 ${setterLabel}` : ''}
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          {isAdmin && (
+            <SetterSelector
+              setters={setters}
+              selectedId={selectedSetter}
+              onChange={handleSetterChange}
+            />
+          )}
+          <MonthSelector year={year} month={month} onChange={handleMonthChange} />
+        </div>
+      </div>
+
+      {/* Tableau */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
+        {isPending && (
+          <div className="px-4 py-2 bg-blue-50 text-blue-600 text-xs font-medium">
+            Chargement...
+          </div>
+        )}
+        <table className="w-full min-w-[900px]">
+          <thead>
+            <tr className="bg-gray-800 text-white text-xs uppercase tracking-wider">
+              <th className="px-3 py-3 text-left font-medium w-24">Semaine</th>
+              <th className="px-3 py-3 text-left font-medium">Date</th>
+              <th className="px-3 py-3 text-center font-medium">Msg envoy&eacute;s</th>
+              <th className="px-3 py-3 text-center font-medium">R&eacute;ponses</th>
+              <th className="px-3 py-3 text-center font-medium">FUP envoy&eacute;s</th>
+              <th className="px-3 py-3 text-center font-medium">R&eacute;p. FUP</th>
+              <th className="px-3 py-3 text-center font-medium">RDV book&eacute;s</th>
+              <th className="w-2 bg-gray-700" />
+              <th className="px-3 py-3 text-center font-medium bg-gray-700">% R&eacute;p.</th>
+              <th className="px-3 py-3 text-center font-medium bg-gray-700">% R&eacute;p. FUP</th>
+              <th className="px-3 py-3 text-center font-medium bg-gray-700">% RDV/Msg</th>
+              <th className="px-3 py-3 text-center font-medium bg-gray-700">% RDV/R&eacute;p</th>
+            </tr>
+          </thead>
+          <tbody>
+            {weeks.map((week) => (
+              <WeekGroup
+                key={week.weekNumber}
+                weekNumber={week.weekNumber}
+                days={week.days}
+                readOnly={readOnly}
+                onCellChange={handleCellChange}
+              />
+            ))}
+          </tbody>
+        </table>
+        {weeks.length === 0 && (
+          <div className="px-6 py-12 text-center text-gray-400 text-sm">
+            Aucune donn&eacute;e pour ce mois
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

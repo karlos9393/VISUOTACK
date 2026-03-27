@@ -27,6 +27,19 @@ export interface SetterLog {
   created_at: string
 }
 
+export interface CrmDailyEntry {
+  id: string
+  setter_id: string
+  date: string
+  messages_envoyes: number
+  reponses: number
+  fup_envoyes: number
+  reponses_fup: number
+  rdv_bookes: number
+  created_at: string
+  updated_at: string
+}
+
 export type Platform = 'instagram' | 'youtube' | 'tiktok'
 export type ContentFormat = 'reel' | 'carrousel' | 'story' | 'video' | 'short'
 export type ContentStatus = 'idee' | 'en_prod' | 'planifie' | 'publie'

@@ -14,6 +14,8 @@ interface MobileNavProps {
 const navigation = [
   { name: 'Setting du jour', href: '/pipeline/setting', roles: ['admin', 'manager', 'setter'] as Role[] },
   { name: 'Pipeline', href: '/pipeline', roles: ['admin', 'manager', 'setter'] as Role[] },
+  { name: 'CRM Setting', href: '/crm-tracker/setting', roles: ['admin', 'manager', 'setter'] as Role[] },
+  { name: 'CRM Tracker', href: '/crm-tracker', roles: ['admin', 'manager', 'setter'] as Role[] },
   { name: 'Calendrier', href: '/contenu/calendrier', roles: ['admin'] as Role[] },
   { name: 'Performance', href: '/contenu/performance', roles: ['admin'] as Role[] },
   { name: 'Admin', href: '/admin', roles: ['admin'] as Role[] },
