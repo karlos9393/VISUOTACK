@@ -36,6 +36,7 @@ export interface CrmDailyEntry {
   fup_envoyes: number
   reponses_fup: number
   rdv_bookes: number
+  links_envoyes: number
   created_at: string
   updated_at: string
   updated_by: string | null

@@ -64,6 +64,7 @@ function buildWeeksForMonth(
         fup_envoyes: entry?.fup_envoyes ?? 0,
         reponses_fup: entry?.reponses_fup ?? 0,
         rdv_bookes: entry?.rdv_bookes ?? 0,
+        links_envoyes: entry?.links_envoyes ?? 0,
       }
     })
     weeks.push({ weekNumber: weekIdx, days })
@@ -133,11 +134,13 @@ export function CrmPipelineTable({
               <th className="px-3 py-3 text-center font-medium">FUP</th>
               <th className="px-3 py-3 text-center font-medium">R.FUP</th>
               <th className="px-3 py-3 text-center font-medium">RDV</th>
+              <th className="px-3 py-3 text-center font-medium">Links</th>
               <th className="w-2 bg-gray-700" />
               <th className="px-3 py-3 text-center font-medium bg-gray-700">%R&eacute;p</th>
               <th className="px-3 py-3 text-center font-medium bg-gray-700">%R.FUP</th>
               <th className="px-3 py-3 text-center font-medium bg-gray-700">%RDV/Msg</th>
               <th className="px-3 py-3 text-center font-medium bg-gray-700">%RDV/R&eacute;p</th>
+              <th className="px-3 py-3 text-center font-medium bg-gray-700">%Links&rarr;Call</th>
             </tr>
           </thead>
           <tbody>

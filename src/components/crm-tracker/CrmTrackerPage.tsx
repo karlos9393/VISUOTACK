@@ -67,6 +67,7 @@ function buildWeeksForMonth(
         fup_envoyes: entry?.fup_envoyes ?? 0,
         reponses_fup: entry?.reponses_fup ?? 0,
         rdv_bookes: entry?.rdv_bookes ?? 0,
+        links_envoyes: entry?.links_envoyes ?? 0,
         updater: entry?.updater ?? null,
         updated_at: entry?.updated_at ?? '',
       }
@@ -96,6 +97,7 @@ function buildWeekDays(refDate: Date, entries: CrmDailyEntry[]): DayData[] {
       fup_envoyes: entry?.fup_envoyes ?? 0,
       reponses_fup: entry?.reponses_fup ?? 0,
       rdv_bookes: entry?.rdv_bookes ?? 0,
+      links_envoyes: entry?.links_envoyes ?? 0,
       updater: entry?.updater ?? null,
       updated_at: entry?.updated_at ?? '',
     }
@@ -190,6 +192,7 @@ export function CrmTrackerPage({
             fup_envoyes: 0,
             reponses_fup: 0,
             rdv_bookes: 0,
+            links_envoyes: 0,
             created_at: '',
             updated_at: '',
             updated_by: null,
@@ -256,12 +259,14 @@ export function CrmTrackerPage({
               <th className="px-3 py-3 text-center font-medium">FUP envoy&eacute;s</th>
               <th className="px-3 py-3 text-center font-medium">R&eacute;p. FUP</th>
               <th className="px-3 py-3 text-center font-medium">RDV book&eacute;s</th>
+              <th className="px-3 py-3 text-center font-medium">Links envoy&eacute;s</th>
               <th className="px-2 py-3 text-center font-medium">Par</th>
               <th className="w-2 bg-gray-700" />
               <th className="px-3 py-3 text-center font-medium bg-gray-700">% R&eacute;p.</th>
               <th className="px-3 py-3 text-center font-medium bg-gray-700">% R&eacute;p. FUP</th>
               <th className="px-3 py-3 text-center font-medium bg-gray-700">% RDV/Msg</th>
               <th className="px-3 py-3 text-center font-medium bg-gray-700">% RDV/R&eacute;p</th>
+              <th className="px-3 py-3 text-center font-medium bg-gray-700">% Links &rarr; Call</th>
             </tr>
           </thead>
           <tbody>

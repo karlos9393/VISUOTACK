@@ -43,6 +43,17 @@ const LEGEND_DATA = [
       { color: '#FF0000', label: 'Rouge', threshold: '< 15%', meaning: 'Trame ne convertit pas \u2014 \u00e0 repenser enti\u00e8rement' },
     ],
   },
+  {
+    col: '% Links \u2192 Call',
+    subtitle: 'Conversion lien envoy\u00e9 \u2192 RDV book\u00e9',
+    quote: '\u00abSi tu envoies un lien, la personne doit booker. Un lien envoy\u00e9 trop t\u00f4t ou sans engagement = rouge.\u00bb',
+    rules: [
+      { color: '#00FF00', label: 'Vert', threshold: '> 80%', meaning: 'Excellent \u2014 tu envoies les liens au bon moment, presque tout le monde booke' },
+      { color: '#B7E1CD', label: 'Vert clair', threshold: '50% \u2013 80%', meaning: 'Bien \u2014 plus de la moiti\u00e9 des liens aboutissent \u00e0 un RDV' },
+      { color: '#FF9900', label: 'Orange', threshold: '30% \u2013 50%', meaning: 'Moyen \u2014 tu envoies peut-\u00eatre les liens trop t\u00f4t ou \u00e0 des prospects pas assez qualifi\u00e9s' },
+      { color: '#FF0000', label: 'Rouge', threshold: '< 30%', meaning: 'Faible \u2014 requalifie mieux avant d\'envoyer le lien. Le prospect n\'est pas assez chaud.' },
+    ],
+  },
 ]
 
 export function CrmLegend() {
@@ -51,7 +62,7 @@ export function CrmLegend() {
       <h3 className="text-sm font-semibold text-gray-500 uppercase mb-4">
         L&eacute;gende &mdash; Interpr&eacute;tation des r&eacute;sultats
       </h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-4">
         {LEGEND_DATA.map((col) => (
           <div key={col.col} className="bg-gray-50 rounded-lg p-4">
             <p className="font-bold text-sm mb-0.5">{col.col}</p>

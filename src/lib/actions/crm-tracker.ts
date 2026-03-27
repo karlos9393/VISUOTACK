@@ -12,6 +12,7 @@ const crmEntrySchema = z.object({
   fup_envoyes: z.number().min(0),
   reponses_fup: z.number().min(0),
   rdv_bookes: z.number().min(0),
+  links_envoyes: z.number().min(0),
 })
 
 export async function upsertCrmEntry(formData: FormData) {
@@ -26,6 +27,7 @@ export async function upsertCrmEntry(formData: FormData) {
     fup_envoyes: Number(formData.get('fup_envoyes') || 0),
     reponses_fup: Number(formData.get('reponses_fup') || 0),
     rdv_bookes: Number(formData.get('rdv_bookes') || 0),
+    links_envoyes: Number(formData.get('links_envoyes') || 0),
   }
 
   const result = crmEntrySchema.safeParse(raw)
@@ -48,6 +50,7 @@ export async function upsertCrmEntry(formData: FormData) {
     fup_envoyes: result.data.fup_envoyes,
     reponses_fup: result.data.reponses_fup,
     rdv_bookes: result.data.rdv_bookes,
+    links_envoyes: result.data.links_envoyes,
     updated_at: now,
     updated_by: user.id,
   }
@@ -79,7 +82,7 @@ export async function upsertCrmEntryInline(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Non authentifié' }
 
-  const validFields = ['messages_envoyes', 'reponses', 'fup_envoyes', 'reponses_fup', 'rdv_bookes']
+  const validFields = ['messages_envoyes', 'reponses', 'fup_envoyes', 'reponses_fup', 'rdv_bookes', 'links_envoyes']
   if (!validFields.includes(field)) {
     return { error: 'Champ invalide' }
   }

@@ -22,6 +22,7 @@ export function CrmSettingForm() {
     fup_envoyes: 0,
     reponses_fup: 0,
     rdv_bookes: 0,
+    links_envoyes: 0,
   })
 
   const [isUpdate, setIsUpdate] = useState(false)
@@ -29,7 +30,7 @@ export function CrmSettingForm() {
 
   // Calcul des métriques en temps réel
   const metrics = useMemo(() => {
-    const { messages_envoyes, reponses, fup_envoyes, reponses_fup, rdv_bookes } = values
+    const { messages_envoyes, reponses, fup_envoyes, reponses_fup, rdv_bookes, links_envoyes } = values
     return {
       pct_reponse: messages_envoyes > 0
         ? (reponses / messages_envoyes * 100).toFixed(1) + '%'
@@ -42,6 +43,9 @@ export function CrmSettingForm() {
         : '\u2014',
       pct_rdv_reponse: (reponses + reponses_fup) > 0
         ? (rdv_bookes / (reponses + reponses_fup) * 100).toFixed(1) + '%'
+        : '\u2014',
+      pct_links_call: links_envoyes > 0
+        ? (rdv_bookes / links_envoyes * 100).toFixed(1) + '%'
         : '\u2014',
     }
   }, [values])
@@ -58,10 +62,11 @@ export function CrmSettingForm() {
           fup_envoyes: entry.fup_envoyes,
           reponses_fup: entry.reponses_fup,
           rdv_bookes: entry.rdv_bookes,
+          links_envoyes: entry.links_envoyes ?? 0,
         })
         setIsUpdate(true)
       } else {
-        setValues({ messages_envoyes: 0, reponses: 0, fup_envoyes: 0, reponses_fup: 0, rdv_bookes: 0 })
+        setValues({ messages_envoyes: 0, reponses: 0, fup_envoyes: 0, reponses_fup: 0, rdv_bookes: 0, links_envoyes: 0 })
         setIsUpdate(false)
       }
       setLoadingData(false)
@@ -88,6 +93,7 @@ export function CrmSettingForm() {
     formData.set('fup_envoyes', String(values.fup_envoyes))
     formData.set('reponses_fup', String(values.reponses_fup))
     formData.set('rdv_bookes', String(values.rdv_bookes))
+    formData.set('links_envoyes', String(values.links_envoyes))
 
     const result = await upsertCrmEntry(formData)
     setLoading(false)
@@ -163,6 +169,14 @@ export function CrmSettingForm() {
               value={displayValue(values.rdv_bookes)}
               onChange={(e) => handleFieldChange('rdv_bookes', e.target.value)}
             />
+            <Input
+              label="Links call envoy&eacute;s"
+              name="links_envoyes"
+              type="number"
+              min={0}
+              value={displayValue(values.links_envoyes)}
+              onChange={(e) => handleFieldChange('links_envoyes', e.target.value)}
+            />
 
             {/* Aperçu métriques en temps réel */}
             <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-200">
@@ -170,6 +184,7 @@ export function CrmSettingForm() {
               <MetricPreview label="% RDV/Msg" value={metrics.pct_rdv_message} />
               <MetricPreview label="% R&eacute;p. FUP" value={metrics.pct_reponse_fup} />
               <MetricPreview label="% RDV/R&eacute;p" value={metrics.pct_rdv_reponse} />
+              <MetricPreview label="% Links &rarr; Call" value={metrics.pct_links_call} />
             </div>
 
             {error && (
@@ -188,7 +203,7 @@ export function CrmSettingForm() {
               Stats du {formatDate(submitted.date, 'd MMMM')} enregistr&eacute;es
             </p>
             <p className="text-xs text-green-700 mt-1">
-              {submitted.messages_envoyes} msg &middot; {submitted.reponses} r&eacute;p &middot; {submitted.fup_envoyes} FUP &middot; {submitted.reponses_fup} r&eacute;p FUP &middot; {submitted.rdv_bookes} RDV
+              {submitted.messages_envoyes} msg &middot; {submitted.reponses} r&eacute;p &middot; {submitted.fup_envoyes} FUP &middot; {submitted.reponses_fup} r&eacute;p FUP &middot; {submitted.rdv_bookes} RDV &middot; {submitted.links_envoyes} links
             </p>
             <p className="text-xs text-green-600 mt-1 opacity-80">
               Visible dans le CRM Tracker

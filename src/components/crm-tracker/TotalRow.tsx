@@ -19,6 +19,7 @@ function calcWeekTotals(days: DayData[]) {
   const fup_envoyes = days.reduce((s, d) => s + d.fup_envoyes, 0)
   const reponses_fup = days.reduce((s, d) => s + d.reponses_fup, 0)
   const rdv_bookes = days.reduce((s, d) => s + d.rdv_bookes, 0)
+  const links_envoyes = days.reduce((s, d) => s + d.links_envoyes, 0)
 
   const avg_pct_reponse = average(
     days.map(d => d.messages_envoyes > 0 ? d.reponses / d.messages_envoyes * 100 : null)
@@ -32,6 +33,9 @@ function calcWeekTotals(days: DayData[]) {
   const avg_pct_rdv_reponse = average(
     days.map(d => (d.reponses + d.reponses_fup) > 0 ? d.rdv_bookes / (d.reponses + d.reponses_fup) * 100 : null)
   )
+  const avg_pct_links_call = average(
+    days.map(d => d.links_envoyes > 0 ? d.rdv_bookes / d.links_envoyes * 100 : null)
+  )
 
   return {
     messages_envoyes,
@@ -39,10 +43,12 @@ function calcWeekTotals(days: DayData[]) {
     fup_envoyes,
     reponses_fup,
     rdv_bookes,
+    links_envoyes,
     avg_pct_reponse,
     avg_pct_reponse_fup,
     avg_pct_rdv_message,
     avg_pct_rdv_reponse,
+    avg_pct_links_call,
   }
 }
 
@@ -51,7 +57,7 @@ function formatPct(val: number | null): string {
   return val.toFixed(1) + '%'
 }
 
-type MetricType = 'pct_reponse' | 'pct_reponse_fup' | 'pct_rdv_message' | 'pct_rdv_reponse'
+type MetricType = 'pct_reponse' | 'pct_reponse_fup' | 'pct_rdv_message' | 'pct_rdv_reponse' | 'pct_links_call'
 
 function getMetricColor(metric: MetricType, value: number | null): string {
   if (value === null) return ''
@@ -80,6 +86,12 @@ function getMetricColor(metric: MetricType, value: number | null): string {
       if (pct >= 0.30) return '#B7E1CD'
       if (pct >= 0.15) return '#FF9900'
       return '#FF0000'
+
+    case 'pct_links_call':
+      if (pct > 0.80) return '#00FF00'
+      if (pct >= 0.50) return '#B7E1CD'
+      if (pct >= 0.30) return '#FF9900'
+      return '#FF0000'
   }
 }
 
@@ -95,12 +107,14 @@ export function TotalRow({ days, label, showParColumn = false }: TotalRowProps) 
       <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.fup_envoyes}</td>
       <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.reponses_fup}</td>
       <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.rdv_bookes}</td>
+      <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.links_envoyes}</td>
       {showParColumn && <td />}
       <td className="w-2" />
       <TotalMetricCell value={formatPct(totals.avg_pct_reponse)} color={getMetricColor('pct_reponse', totals.avg_pct_reponse)} />
       <TotalMetricCell value={formatPct(totals.avg_pct_reponse_fup)} color={getMetricColor('pct_reponse_fup', totals.avg_pct_reponse_fup)} />
       <TotalMetricCell value={formatPct(totals.avg_pct_rdv_message)} color={getMetricColor('pct_rdv_message', totals.avg_pct_rdv_message)} />
       <TotalMetricCell value={formatPct(totals.avg_pct_rdv_reponse)} color={getMetricColor('pct_rdv_reponse', totals.avg_pct_rdv_reponse)} />
+      <TotalMetricCell value={formatPct(totals.avg_pct_links_call)} color={getMetricColor('pct_links_call', totals.avg_pct_links_call)} />
     </tr>
   )
 }

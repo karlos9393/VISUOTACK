@@ -13,6 +13,7 @@ export interface DayData {
   fup_envoyes: number
   reponses_fup: number
   rdv_bookes: number
+  links_envoyes: number
   updater?: { full_name: string | null; email: string } | null
   updated_at?: string
 }
@@ -39,6 +40,9 @@ function calcMetrics(row: DayData) {
     pct_rdv_reponse: (row.reponses + row.reponses_fup) > 0
       ? (row.rdv_bookes / (row.reponses + row.reponses_fup) * 100).toFixed(1) + '%'
       : '\u2014',
+    pct_links_call: row.links_envoyes > 0
+      ? (row.rdv_bookes / row.links_envoyes * 100).toFixed(1) + '%'
+      : '\u2014',
   }
 }
 
@@ -62,6 +66,7 @@ export function DayRow({ day, weekLabel, readOnly = false, showParColumn = false
       <EditableCell field="fup_envoyes" value={day.fup_envoyes} date={day.date} readOnly={readOnly} onChange={onCellChange} />
       <EditableCell field="reponses_fup" value={day.reponses_fup} date={day.date} readOnly={readOnly} onChange={onCellChange} />
       <EditableCell field="rdv_bookes" value={day.rdv_bookes} date={day.date} readOnly={readOnly} onChange={onCellChange} />
+      <EditableCell field="links_envoyes" value={day.links_envoyes} date={day.date} readOnly={readOnly} onChange={onCellChange} />
       {showParColumn && (
         day.updater ? (
           <UserInitials
@@ -78,6 +83,7 @@ export function DayRow({ day, weekLabel, readOnly = false, showParColumn = false
       <MetricCell value={metrics.pct_reponse_fup} />
       <MetricCell value={metrics.pct_rdv_message} />
       <MetricCell value={metrics.pct_rdv_reponse} />
+      <MetricCell value={metrics.pct_links_call} />
     </tr>
   )
 }
