@@ -87,13 +87,13 @@ function EditableCell({
 
   function handleClick() {
     if (readOnly) return
-    setLocalValue(String(value))
+    setLocalValue(value === 0 ? '' : String(value))
     setEditing(true)
     setTimeout(() => inputRef.current?.select(), 0)
   }
 
   async function handleBlur() {
-    const newVal = Math.max(0, parseInt(localValue) || 0)
+    const newVal = localValue === '' ? 0 : Math.max(0, parseInt(localValue) || 0)
     setEditing(false)
     if (newVal !== value) {
       setSaving(true)
@@ -107,7 +107,7 @@ function EditableCell({
       inputRef.current?.blur()
     }
     if (e.key === 'Escape') {
-      setLocalValue(String(value))
+      setLocalValue(value === 0 ? '' : String(value))
       setEditing(false)
     }
   }
@@ -143,7 +143,7 @@ function EditableCell({
       {saving ? (
         <span className="text-blue-500 text-xs">...</span>
       ) : (
-        value
+        value === 0 ? '' : value
       )}
     </td>
   )

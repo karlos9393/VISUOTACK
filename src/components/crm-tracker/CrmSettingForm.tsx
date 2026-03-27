@@ -70,7 +70,12 @@ export function CrmSettingForm() {
   }, [date])
 
   function handleFieldChange(field: keyof typeof values, val: string) {
-    setValues((prev) => ({ ...prev, [field]: Math.max(0, parseInt(val) || 0) }))
+    const parsed = val === '' ? 0 : parseInt(val, 10)
+    setValues((prev) => ({ ...prev, [field]: isNaN(parsed) ? 0 : Math.max(0, parsed) }))
+  }
+
+  function displayValue(val: number): string {
+    return val === 0 ? '' : String(val)
   }
 
   async function handleSubmit(formData: FormData) {
@@ -123,45 +128,40 @@ export function CrmSettingForm() {
               name="messages_envoyes"
               type="number"
               min={0}
-              value={values.messages_envoyes}
+              value={displayValue(values.messages_envoyes)}
               onChange={(e) => handleFieldChange('messages_envoyes', e.target.value)}
-              required
             />
             <Input
               label="R&eacute;ponses"
               name="reponses"
               type="number"
               min={0}
-              value={values.reponses}
+              value={displayValue(values.reponses)}
               onChange={(e) => handleFieldChange('reponses', e.target.value)}
-              required
             />
             <Input
               label="FUP envoy&eacute;s"
               name="fup_envoyes"
               type="number"
               min={0}
-              value={values.fup_envoyes}
+              value={displayValue(values.fup_envoyes)}
               onChange={(e) => handleFieldChange('fup_envoyes', e.target.value)}
-              required
             />
             <Input
               label="R&eacute;ponses FUP"
               name="reponses_fup"
               type="number"
               min={0}
-              value={values.reponses_fup}
+              value={displayValue(values.reponses_fup)}
               onChange={(e) => handleFieldChange('reponses_fup', e.target.value)}
-              required
             />
             <Input
               label="RDV book&eacute;s"
               name="rdv_bookes"
               type="number"
               min={0}
-              value={values.rdv_bookes}
+              value={displayValue(values.rdv_bookes)}
               onChange={(e) => handleFieldChange('rdv_bookes', e.target.value)}
-              required
             />
 
             {/* Aperçu métriques en temps réel */}

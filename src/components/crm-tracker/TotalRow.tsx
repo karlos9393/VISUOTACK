@@ -1,6 +1,5 @@
 'use client'
 
-import { cn } from '@/lib/utils'
 import type { DayData } from './DayRow'
 
 interface TotalRowProps {
@@ -51,6 +50,38 @@ function formatPct(val: number | null): string {
   return val.toFixed(1) + '%'
 }
 
+type MetricType = 'pct_reponse' | 'pct_reponse_fup' | 'pct_rdv_message' | 'pct_rdv_reponse'
+
+function getMetricColor(metric: MetricType, value: number | null): string {
+  if (value === null) return ''
+
+  const pct = value / 100 // valeurs sont en %, on compare en ratio
+
+  switch (metric) {
+    case 'pct_reponse':
+      if (pct > 0.40) return '#00FF00'
+      if (pct >= 0.20) return '#FF9900'
+      return '#FF0000'
+
+    case 'pct_reponse_fup':
+      if (pct > 0.30) return '#00FF00'
+      if (pct >= 0.15) return '#FF9900'
+      return '#FF0000'
+
+    case 'pct_rdv_message':
+      if (pct > 0.10) return '#00FF00'
+      if (pct >= 0.05) return '#B7E1CD'
+      if (pct >= 0.02) return '#FF9900'
+      return '#FF0000'
+
+    case 'pct_rdv_reponse':
+      if (pct > 0.40) return '#00FF00'
+      if (pct >= 0.30) return '#B7E1CD'
+      if (pct >= 0.15) return '#FF9900'
+      return '#FF0000'
+  }
+}
+
 export function TotalRow({ days, label }: TotalRowProps) {
   const totals = calcWeekTotals(days)
 
@@ -64,22 +95,22 @@ export function TotalRow({ days, label }: TotalRowProps) {
       <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.reponses_fup}</td>
       <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.rdv_bookes}</td>
       <td className="w-2" />
-      <TotalMetricCell value={formatPct(totals.avg_pct_reponse)} />
-      <TotalMetricCell value={formatPct(totals.avg_pct_reponse_fup)} />
-      <TotalMetricCell value={formatPct(totals.avg_pct_rdv_message)} />
-      <TotalMetricCell value={formatPct(totals.avg_pct_rdv_reponse)} />
+      <TotalMetricCell value={formatPct(totals.avg_pct_reponse)} color={getMetricColor('pct_reponse', totals.avg_pct_reponse)} />
+      <TotalMetricCell value={formatPct(totals.avg_pct_reponse_fup)} color={getMetricColor('pct_reponse_fup', totals.avg_pct_reponse_fup)} />
+      <TotalMetricCell value={formatPct(totals.avg_pct_rdv_message)} color={getMetricColor('pct_rdv_message', totals.avg_pct_rdv_message)} />
+      <TotalMetricCell value={formatPct(totals.avg_pct_rdv_reponse)} color={getMetricColor('pct_rdv_reponse', totals.avg_pct_rdv_reponse)} />
     </tr>
   )
 }
 
-function TotalMetricCell({ value }: { value: string }) {
+function TotalMetricCell({ value, color }: { value: string; color: string }) {
   const isDash = value === '\u2014'
   return (
-    <td className={cn(
-      'px-3 py-2.5 text-sm text-center',
-      isDash ? 'text-gray-300' : 'text-blue-800 bg-blue-100/60'
-    )}>
-      {value}
+    <td
+      className="px-3 py-2.5 text-sm text-center font-bold"
+      style={!isDash && color ? { backgroundColor: color, color: '#000' } : undefined}
+    >
+      <span className={isDash ? 'text-gray-300 font-normal' : ''}>{value}</span>
     </td>
   )
 }
