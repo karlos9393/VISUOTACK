@@ -22,17 +22,13 @@ export default async function CrmTrackerRoute() {
 
   if (!profile) redirect('/login')
 
-  const isAdmin = ['admin', 'manager'].includes(profile.role)
-
-  // Liste des setters (admin uniquement)
+  // Liste des setters (visible par tous pour naviguer entre les données)
   let setters = [{ id: profile.id, full_name: profile.full_name, email: profile.email, role: profile.role }]
-  if (isAdmin) {
-    const { data } = await adminClient
-      .from('users')
-      .select('id, full_name, email, role')
-      .order('full_name', { ascending: true })
-    if (data) setters = data
-  }
+  const { data: allSetters } = await adminClient
+    .from('users')
+    .select('id, full_name, email, role')
+    .order('full_name', { ascending: true })
+  if (allSetters) setters = allSetters
 
   // Semaine courante (vue par défaut = week)
   const now = new Date()
@@ -42,7 +38,6 @@ export default async function CrmTrackerRoute() {
   const { data: entries } = await supabase
     .from('crm_daily_entries')
     .select('*, updater:updated_by(full_name, email)')
-    .eq('setter_id', profile.id)
     .gte('date', format(weekStart, 'yyyy-MM-dd'))
     .lte('date', format(weekEnd, 'yyyy-MM-dd'))
     .order('date', { ascending: true })

@@ -92,16 +92,21 @@ export function CrmPipelineTable({
   initialYear,
   initialMonth,
 }: CrmPipelineTableProps) {
-  const isAdmin = ['admin', 'manager'].includes(currentUserRole)
   const [selectedSetter, setSelectedSetter] = useState(currentUserId)
   const [year, setYear] = useState(initialYear)
   const [month, setMonth] = useState(initialMonth)
   const [entries, setEntries] = useState<CrmDailyEntry[]>(initialEntries)
   const [isPending, startTransition] = useTransition()
 
+  // Client-side filtering by selected setter
+  const filteredEntries = useMemo(
+    () => entries.filter(e => e.setter_id === selectedSetter),
+    [entries, selectedSetter]
+  )
+
   const weeks = useMemo(
-    () => buildWeeksForMonth(year, month, entries),
-    [year, month, entries]
+    () => buildWeeksForMonth(year, month, filteredEntries),
+    [year, month, filteredEntries]
   )
 
   function handleMonthNavigate(newDate: Date) {
@@ -110,17 +115,14 @@ export function CrmPipelineTable({
     setYear(newYear)
     setMonth(newMonth)
     startTransition(async () => {
-      const data = await getCrmEntriesForMonth(selectedSetter, newYear, newMonth)
+      const data = await getCrmEntriesForMonth(newYear, newMonth)
       setEntries(data as CrmDailyEntry[])
     })
   }
 
-  async function handleSetterChange(setterId: string) {
+  function handleSetterChange(setterId: string) {
+    // No re-fetch needed — data already includes all setters, filtering is client-side
     setSelectedSetter(setterId)
-    startTransition(async () => {
-      const data = await getCrmEntriesForMonth(setterId, year, month)
-      setEntries(data as CrmDailyEntry[])
-    })
   }
 
   const monthLabel = format(new Date(year, month - 1, 1), 'MMMM yyyy', { locale: fr })
@@ -131,13 +133,11 @@ export function CrmPipelineTable({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h2 className="text-lg font-semibold text-gray-900">Performance CRM</h2>
         <div className="flex items-center gap-4">
-          {isAdmin && (
-            <SetterSelector
-              setters={setters}
-              selectedId={selectedSetter}
-              onChange={handleSetterChange}
-            />
-          )}
+          <SetterSelector
+            setters={setters}
+            selectedId={selectedSetter}
+            onChange={handleSetterChange}
+          />
           <PeriodSelector
             viewMode="month"
             currentDate={new Date(year, month - 1, 1)}
@@ -147,7 +147,7 @@ export function CrmPipelineTable({
       </div>
 
       {/* KPI Cards */}
-      <CrmKPICards entries={entries} />
+      <CrmKPICards entries={filteredEntries} />
 
       {/* Tableau lecture seule */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">

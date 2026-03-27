@@ -130,15 +130,21 @@ export function CrmTrackerPage({
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth() + 1
 
-  // Build data for current view
+  // Client-side filtering by selected setter
+  const filteredEntries = useMemo(
+    () => entries.filter(e => e.setter_id === selectedSetter),
+    [entries, selectedSetter]
+  )
+
+  // Build data for current view (uses filtered entries)
   const weeks = useMemo(
-    () => viewMode === 'month' ? buildWeeksForMonth(year, month, entries) : [],
-    [viewMode, year, month, entries]
+    () => viewMode === 'month' ? buildWeeksForMonth(year, month, filteredEntries) : [],
+    [viewMode, year, month, filteredEntries]
   )
 
   const weekDays = useMemo(
-    () => viewMode === 'week' ? buildWeekDays(currentDate, entries) : [],
-    [viewMode, currentDate, entries]
+    () => viewMode === 'week' ? buildWeekDays(currentDate, filteredEntries) : [],
+    [viewMode, currentDate, filteredEntries]
   )
 
   // Week number for week view label
@@ -147,22 +153,21 @@ export function CrmTrackerPage({
     return getWeek(currentDate, { weekStartsOn: 1 })
   }, [viewMode, currentDate])
 
-  const readOnly = isAdmin && selectedSetter !== currentUserId
+  const readOnly = !isAdmin && selectedSetter !== currentUserId
   const debounceTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
-  // Fetch data for current period
-  async function fetchData(setter: string, date: Date, mode: ViewMode) {
+  // Fetch ALL entries for current period (no setter filter — client-side filtering)
+  async function fetchData(date: Date, mode: ViewMode) {
     startTransition(async () => {
       if (mode === 'month') {
         const y = date.getFullYear()
         const m = date.getMonth() + 1
-        const data = await getCrmEntriesForMonth(setter, y, m)
+        const data = await getCrmEntriesForMonth(y, m)
         setEntries(data as CrmDailyEntry[])
       } else {
         const ws = startOfWeek(date, { weekStartsOn: 1 })
         const we = endOfWeek(date, { weekStartsOn: 1 })
         const data = await getCrmEntriesForDateRange(
-          setter,
           format(ws, 'yyyy-MM-dd'),
           format(we, 'yyyy-MM-dd')
         )
@@ -173,7 +178,7 @@ export function CrmTrackerPage({
 
   function handleNavigate(newDate: Date) {
     setCurrentDate(newDate)
-    fetchData(selectedSetter, newDate, viewMode)
+    fetchData(newDate, viewMode)
   }
 
   function handleViewModeChange(mode: ViewMode) {
@@ -183,25 +188,25 @@ export function CrmTrackerPage({
       // Ensure currentDate is 1st of month for consistency
       const monthDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
       setCurrentDate(monthDate)
-      fetchData(selectedSetter, monthDate, mode)
+      fetchData(monthDate, mode)
     } else {
-      fetchData(selectedSetter, currentDate, mode)
+      fetchData(currentDate, mode)
     }
   }
 
-  async function handleSetterChange(setterId: string) {
+  function handleSetterChange(setterId: string) {
+    // No re-fetch needed — data already includes all setters, filtering is client-side
     setSelectedSetter(setterId)
-    fetchData(setterId, currentDate, viewMode)
   }
 
   const handleCellChange = useCallback(
     async (date: string, field: string, value: number) => {
-      // Optimistic update
+      // Optimistic update (match by setter_id + date since entries include all setters)
       setEntries((prev) => {
-        const existing = prev.find((e) => e.date === date)
+        const existing = prev.find((e) => e.date === date && e.setter_id === selectedSetter)
         if (existing) {
           return prev.map((e) =>
-            e.date === date ? { ...e, [field]: value } : e
+            e.date === date && e.setter_id === selectedSetter ? { ...e, [field]: value } : e
           )
         }
         return [
@@ -254,17 +259,15 @@ export function CrmTrackerPage({
         <div>
           <h1 className="text-2xl font-bold text-gray-900">CRM Tracker</h1>
           <p className="text-gray-500 mt-1">
-            Suivi d&apos;activit&eacute; {isAdmin && setterLabel ? `\u2014 ${setterLabel}` : ''}
+            Suivi d&apos;activit&eacute; {setterLabel ? `\u2014 ${setterLabel}` : ''}
           </p>
         </div>
         <div className="flex items-center gap-4">
-          {isAdmin && (
-            <SetterSelector
-              setters={setters}
-              selectedId={selectedSetter}
-              onChange={handleSetterChange}
-            />
-          )}
+          <SetterSelector
+            setters={setters}
+            selectedId={selectedSetter}
+            onChange={handleSetterChange}
+          />
         </div>
       </div>
 
@@ -295,7 +298,7 @@ export function CrmTrackerPage({
               <th className="px-3 py-3 text-center font-medium">FUP envoy&eacute;s</th>
               <th className="px-3 py-3 text-center font-medium">R&eacute;p. FUP</th>
               <th className="px-3 py-3 text-center font-medium">RDV book&eacute;s</th>
-              {isAdmin && <th className="px-2 py-3 text-center font-medium">Par</th>}
+              <th className="px-2 py-3 text-center font-medium">Par</th>
               <th className="w-2 bg-gray-700" />
               <th className="px-3 py-3 text-center font-medium bg-gray-700">% R&eacute;p.</th>
               <th className="px-3 py-3 text-center font-medium bg-gray-700">% R&eacute;p. FUP</th>
@@ -311,7 +314,7 @@ export function CrmTrackerPage({
                   weekNumber={week.weekNumber}
                   days={week.days}
                   readOnly={readOnly}
-                  showParColumn={isAdmin}
+                  showParColumn
                   onCellChange={handleCellChange}
                 />
               ))
@@ -323,12 +326,12 @@ export function CrmTrackerPage({
                     day={day}
                     weekLabel={i === 0 ? `Semaine ${weekNumber}` : ''}
                     readOnly={readOnly}
-                    showParColumn={isAdmin}
+                    showParColumn
                     onCellChange={handleCellChange}
                   />
                 ))}
                 {weekDays.length > 0 && (
-                  <TotalRow days={weekDays} label={`Total S${weekNumber}`} showParColumn={isAdmin} />
+                  <TotalRow days={weekDays} label={`Total S${weekNumber}`} showParColumn />
                 )}
               </>
             )}

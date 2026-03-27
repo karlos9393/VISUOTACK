@@ -118,7 +118,7 @@ export async function upsertCrmEntryInline(
   return { success: true }
 }
 
-export async function getCrmEntriesForMonth(setterId: string, year: number, month: number) {
+export async function getCrmEntriesForMonth(year: number, month: number) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
@@ -131,7 +131,6 @@ export async function getCrmEntriesForMonth(setterId: string, year: number, mont
   const { data } = await supabase
     .from('crm_daily_entries')
     .select('*, updater:updated_by(full_name, email)')
-    .eq('setter_id', setterId)
     .gte('date', startDate)
     .lt('date', endDate)
     .order('date', { ascending: true })
@@ -139,7 +138,7 @@ export async function getCrmEntriesForMonth(setterId: string, year: number, mont
   return data || []
 }
 
-export async function getCrmEntriesForDateRange(setterId: string, startDate: string, endDate: string) {
+export async function getCrmEntriesForDateRange(startDate: string, endDate: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
@@ -147,7 +146,6 @@ export async function getCrmEntriesForDateRange(setterId: string, startDate: str
   const { data } = await supabase
     .from('crm_daily_entries')
     .select('*, updater:updated_by(full_name, email)')
-    .eq('setter_id', setterId)
     .gte('date', startDate)
     .lte('date', endDate)
     .order('date', { ascending: true })
