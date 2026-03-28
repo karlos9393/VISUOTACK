@@ -37,8 +37,8 @@ export default async function AdminPage({
               <tr className="border-b text-left text-gray-500">
                 <th className="pb-3 pr-4 font-medium">Nom</th>
                 <th className="pb-3 px-2 font-medium">Email</th>
-                <th className="pb-3 px-2 font-medium">R\u00f4le</th>
-                <th className="pb-3 px-2 font-medium">Cr\u00e9\u00e9 le</th>
+                <th className="pb-3 px-2 font-medium">Rôle</th>
+                <th className="pb-3 px-2 font-medium">Créé le</th>
                 <th className="pb-3 pl-2 font-medium"></th>
               </tr>
             </thead>
@@ -79,7 +79,7 @@ export default async function AdminPage({
                 href={`/admin?page=${page - 1}`}
                 className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded"
               >
-                Pr\u00e9c\u00e9dent
+                Précédent
               </Link>
             )}
             <span className="text-sm text-gray-500">
