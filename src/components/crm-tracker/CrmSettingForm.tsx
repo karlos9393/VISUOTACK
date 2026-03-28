@@ -206,7 +206,7 @@ export function CrmSettingForm() {
               {submitted.messages_envoyes} msg &middot; {submitted.reponses} r&eacute;p &middot; {submitted.fup_envoyes} FUP &middot; {submitted.reponses_fup} r&eacute;p FUP &middot; {submitted.rdv_bookes} RDV &middot; {submitted.links_envoyes} links
             </p>
             <p className="text-xs text-green-600 mt-1 opacity-80">
-              Visible dans le CRM Tracker
+              Visible dans KINDASAMA
             </p>
           </div>
         )}
