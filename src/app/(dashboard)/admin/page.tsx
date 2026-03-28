@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { Card, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { AdminActions } from '@/components/admin-actions'
@@ -12,12 +12,12 @@ export default async function AdminPage({
   searchParams: Promise<{ page?: string }>
 }) {
   const resolvedParams = await searchParams
-  const supabase = await createClient()
+  const adminClient = createAdminClient()
   const page = Math.max(1, parseInt(resolvedParams.page || '1', 10) || 1)
   const from = (page - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
 
-  const { data: users, count } = await supabase
+  const { data: users, count } = await adminClient
     .from('users')
     .select('*', { count: 'exact' })
     .order('created_at', { ascending: true })

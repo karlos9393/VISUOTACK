@@ -43,14 +43,17 @@ export async function updateUserRole(userId: string, newRole: string) {
     return { error: 'Rôle invalide' }
   }
 
+  // Utiliser adminClient pour bypass RLS (l'admin ne peut pas update les autres via RLS)
+  const admin = createAdminClient()
+
   // Récupérer l'ancien rôle pour l'audit
-  const { data: target } = await supabase
+  const { data: target } = await admin
     .from('users')
     .select('role')
     .eq('id', userId)
     .single()
 
-  const { error } = await supabase
+  const { error } = await admin
     .from('users')
     .update({ role: newRole })
     .eq('id', userId)
