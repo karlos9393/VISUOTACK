@@ -50,30 +50,36 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // Authentifié sur /login → redirection selon rôle
-    if (user && pathname.startsWith('/login')) {
-      const role = await getUserRole(supabase, user.id)
-      const url = request.nextUrl.clone()
-      url.pathname = role === 'setter' ? '/crm-tracker/setting' : '/crm-tracker'
-      return NextResponse.redirect(url)
-    }
-
-    // Authentifié sur / ou anciennes routes pipeline → redirection
-    if (user && (pathname === '/' || pathname.startsWith('/pipeline'))) {
-      const role = await getUserRole(supabase, user.id)
-      const url = request.nextUrl.clone()
-      url.pathname = role === 'setter' ? '/crm-tracker/setting' : '/crm-tracker'
-      return NextResponse.redirect(url)
-    }
-
-    // Pages réservées à l'admin
+    // Pour les cas qui nécessitent le rôle, on le récupère une seule fois
     if (user) {
-      const adminOnlyPaths = ['/contenu', '/admin']
-      const isAdminOnly = adminOnlyPaths.some(p => pathname.startsWith(p))
+      const needsRole = pathname.startsWith('/login') ||
+        pathname === '/' ||
+        pathname.startsWith('/pipeline') ||
+        pathname.startsWith('/contenu') ||
+        pathname.startsWith('/admin')
 
-      if (isAdminOnly) {
+      if (needsRole) {
         const role = await getUserRole(supabase, user.id)
-        if (role !== 'admin') {
+        const redirectPath = role === 'setter' ? '/crm-tracker/setting' : '/crm-tracker'
+
+        // Authentifié sur /login → redirection selon rôle
+        if (pathname.startsWith('/login')) {
+          const url = request.nextUrl.clone()
+          url.pathname = redirectPath
+          return NextResponse.redirect(url)
+        }
+
+        // Authentifié sur / ou anciennes routes pipeline → redirection
+        if (pathname === '/' || pathname.startsWith('/pipeline')) {
+          const url = request.nextUrl.clone()
+          url.pathname = redirectPath
+          return NextResponse.redirect(url)
+        }
+
+        // Pages réservées à l'admin
+        const adminOnlyPaths = ['/contenu', '/admin']
+        const isAdminOnly = adminOnlyPaths.some(p => pathname.startsWith(p))
+        if (isAdminOnly && role !== 'admin') {
           const url = request.nextUrl.clone()
           url.pathname = '/crm-tracker/setting'
           return NextResponse.redirect(url)
