@@ -113,19 +113,26 @@ export async function getAccountStats(): Promise<IGAccountStats | null> {
   }
 }
 
-// Liste des 50 derniers posts avec stats de base
-export async function getMediaList(): Promise<IGMedia[]> {
+// Liste de TOUS les posts (pagination complète via paging.next).
+// maxItems = garde-fou anti-boucle pour les très gros comptes.
+export async function getMediaList(maxItems = 1000): Promise<IGMedia[]> {
   const token = await getToken()
   if (!token) return []
 
   try {
-    const res = await fetch(
-      `${BASE_URL}/${IG_ACCOUNT_ID}/media?fields=id,caption,media_type,media_url,thumbnail_url,timestamp,like_count,comments_count,permalink&limit=50&access_token=${token}`,
-      { next: { revalidate: 1800 } }
-    )
-    if (!res.ok) return []
-    const data = await res.json()
-    return data.data || []
+    const all: IGMedia[] = []
+    let url: string | null =
+      `${BASE_URL}/${IG_ACCOUNT_ID}/media?fields=id,caption,media_type,media_url,thumbnail_url,timestamp,like_count,comments_count,permalink&limit=100&access_token=${token}`
+
+    while (url && all.length < maxItems) {
+      const res: Response = await fetch(url, { next: { revalidate: 1800 } })
+      if (!res.ok) break
+      const data: { data?: IGMedia[]; paging?: { next?: string } } = await res.json()
+      all.push(...(data.data || []))
+      url = data.paging?.next || null
+    }
+
+    return all
   } catch {
     return []
   }
