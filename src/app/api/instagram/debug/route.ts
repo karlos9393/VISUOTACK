@@ -7,6 +7,7 @@ import {
   debugToken,
   TOKEN_CONFIG_KEY,
 } from '@/lib/services/instagram'
+import { getScriptsCatalog } from '@/lib/actions/generateur'
 
 const BASE_URL = 'https://graph.facebook.com/v22.0'
 
@@ -62,6 +63,29 @@ export async function GET() {
     getMediaList_count: realMedia.length,
     getAccountStats_ok: !!realStats,
   }
+
+  // --- DIAGNOSTIC GÉNÉRATEUR (tables scripts sur la VRAIE base de prod) ---
+  const admin = createAdminClient()
+  try {
+    const { data, error, count } = await admin
+      .from('generateur_scripts')
+      .select('*', { count: 'exact' })
+      .limit(1)
+    results.generateur_scripts = {
+      tableError: error?.message ?? null,
+      count: count ?? null,
+      columns: data?.[0] ? Object.keys(data[0]) : [],
+    }
+  } catch (e) {
+    results.generateur_scripts = { error: String(e) }
+  }
+  try {
+    const { error } = await admin.from('post_script_links').select('media_id').limit(1)
+    results.post_script_links = { tableError: error?.message ?? null }
+  } catch (e) {
+    results.post_script_links = { error: String(e) }
+  }
+  results.getScriptsCatalog_count = (await getScriptsCatalog()).length
 
   if (!envToken || !accountId) {
     results.env = { hasToken: !!envToken, hasAccountId: !!accountId }

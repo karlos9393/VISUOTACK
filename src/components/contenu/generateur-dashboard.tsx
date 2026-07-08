@@ -44,9 +44,13 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks }
   const [catalog, setCatalog] = useState<ScriptCatalogItem[] | null>(null)
   useEffect(() => {
     let cancelled = false
-    getScriptsCatalog().then((c) => {
-      if (!cancelled) setCatalog(c)
-    })
+    getScriptsCatalog()
+      .then((c) => {
+        if (!cancelled) setCatalog(c)
+      })
+      .catch(() => {
+        if (!cancelled) setCatalog([])
+      })
     return () => {
       cancelled = true
     }

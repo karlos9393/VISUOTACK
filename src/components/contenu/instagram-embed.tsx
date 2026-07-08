@@ -20,7 +20,6 @@ function loadEmbedScript(): Promise<void> {
     const existing = document.querySelector<HTMLScriptElement>(`script[src="${EMBED_SCRIPT_SRC}"]`)
     if (existing) {
       existing.addEventListener('load', () => resolve(), { once: true })
-      // Si déjà chargé mais instgrm pas encore prêt, on tente quand même
       if (window.instgrm) resolve()
       return
     }
@@ -32,6 +31,20 @@ function loadEmbedScript(): Promise<void> {
     script.addEventListener('error', () => resolve(), { once: true })
     document.body.appendChild(script)
   })
+}
+
+/**
+ * Le blockquote est injecté via dangerouslySetInnerHTML : React traite ce sous-arbre
+ * comme opaque et ne réconcilie jamais ses enfants. Instagram peut donc remplacer
+ * librement le blockquote par une iframe sans provoquer d'erreur removeChild côté React.
+ */
+function blockquoteHtml(permalink: string): string {
+  return (
+    `<blockquote class="instagram-media" data-instgrm-permalink="${permalink}" data-instgrm-version="14" ` +
+    `style="background:#FFF;border:0;border-radius:12px;box-shadow:none;margin:0;max-width:${EMBED_WIDTH}px;min-width:0;width:100%">` +
+    `<a href="${permalink}" target="_blank" rel="noopener noreferrer">Voir ce post sur Instagram</a>` +
+    `</blockquote>`
+  )
 }
 
 interface InstagramEmbedProps {
@@ -55,7 +68,7 @@ export function InstagramEmbed({ permalink, thumbnailUrl, caption }: InstagramEm
       if (cancelled) return
 
       try {
-        window.instgrm?.Embeds.process()
+        window.instgrm?.Embeds.process(containerRef.current ?? undefined)
       } catch {
         setFailed(true)
         return
@@ -75,7 +88,6 @@ export function InstagramEmbed({ permalink, thumbnailUrl, caption }: InstagramEm
       cancelled = true
       clearTimeout(fallbackTimer)
     }
-    // Re-render à chaque changement de post
   }, [permalink])
 
   if (failed) {
@@ -93,7 +105,7 @@ export function InstagramEmbed({ permalink, thumbnailUrl, caption }: InstagramEm
           href={permalink}
           target="_blank"
           rel="noopener noreferrer"
-          className="block text-center text-sm font-medium text-blue-600 hover:text-blue-700 py-2.5 border-t border-gray-100"
+          className="block text-center text-sm font-medium text-primary hover:text-primary-hover py-2.5 border-t border-gray-100"
         >
           Ouvrir sur Instagram →
         </a>
@@ -102,28 +114,9 @@ export function InstagramEmbed({ permalink, thumbnailUrl, caption }: InstagramEm
   }
 
   return (
-    <div ref={containerRef} style={{ width: EMBED_WIDTH }}>
-      <blockquote
-        // key force React à recréer le blockquote quand le permalink change
-        key={permalink}
-        className="instagram-media"
-        data-instgrm-permalink={permalink}
-        data-instgrm-version="14"
-        style={{
-          background: '#FFF',
-          border: 0,
-          borderRadius: 12,
-          boxShadow: 'none',
-          margin: 0,
-          maxWidth: EMBED_WIDTH,
-          minWidth: 0,
-          width: '100%',
-        }}
-      >
-        <a href={permalink} target="_blank" rel="noopener noreferrer">
-          Voir ce post sur Instagram
-        </a>
-      </blockquote>
+    <div style={{ width: EMBED_WIDTH }}>
+      {/* dangerouslySetInnerHTML : DOM opaque pour React → pas de crash removeChild avec Instagram */}
+      <div ref={containerRef} dangerouslySetInnerHTML={{ __html: blockquoteHtml(permalink) }} />
     </div>
   )
 }
