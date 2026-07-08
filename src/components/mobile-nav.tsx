@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import type { Role } from '@/lib/types'
@@ -16,6 +17,7 @@ const navigation = [
   { name: 'KINDASAMA', href: '/crm-tracker', roles: ['admin', 'manager', 'setter'] as Role[] },
   { name: 'Calendrier', href: '/contenu/calendrier', roles: ['admin'] as Role[] },
   { name: 'Performance', href: '/contenu/performance', roles: ['admin'] as Role[] },
+  { name: 'Le Générateur', href: '/contenu/generateur', roles: ['admin'] as Role[] },
   { name: 'Admin', href: '/admin', roles: ['admin'] as Role[] },
 ]
 
@@ -26,9 +28,9 @@ export function MobileNav({ role, userName }: MobileNavProps) {
 
   return (
     <>
-      <header className="lg:hidden fixed top-0 inset-x-0 z-40 bg-gray-900 text-white flex items-center justify-between px-4 py-3">
-        <span className="text-lg font-bold">CYGA</span>
-        <button onClick={() => setOpen(!open)} className="p-1" aria-label={open ? 'Fermer le menu' : 'Ouvrir le menu'}>
+      <header className="lg:hidden fixed top-0 inset-x-0 z-40 bg-white border-b border-gray-200 text-gray-900 flex items-center justify-between px-4 py-3">
+        <Image src="/cyga-logo.png" alt="CYGA" width={798} height={313} priority className="h-7 w-auto" />
+        <button onClick={() => setOpen(!open)} className="p-1 text-gray-700" aria-label={open ? 'Fermer le menu' : 'Ouvrir le menu'}>
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             {open ? (
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -40,9 +42,9 @@ export function MobileNav({ role, userName }: MobileNavProps) {
       </header>
 
       {open && (
-        <div className="lg:hidden fixed inset-0 z-30 bg-black/50" onClick={() => setOpen(false)}>
+        <div className="lg:hidden fixed inset-0 z-30 bg-black/40" onClick={() => setOpen(false)}>
           <nav
-            className="absolute top-14 left-0 right-0 bg-gray-900 border-t border-gray-800 py-2"
+            className="absolute top-14 left-0 right-0 bg-white border-t border-gray-100 shadow-md py-2"
             onClick={(e) => e.stopPropagation()}
           >
             {filteredNav.map((item) => {
@@ -53,18 +55,18 @@ export function MobileNav({ role, userName }: MobileNavProps) {
                   href={item.href}
                   onClick={() => setOpen(false)}
                   className={cn(
-                    'block px-4 py-3 text-sm font-medium transition-colors',
-                    isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-800'
+                    'block mx-2 px-4 py-3 text-sm font-medium rounded-xl transition-colors',
+                    isActive ? 'bg-primary text-white' : 'text-gray-600 hover:bg-primary-soft hover:text-primary'
                   )}
                 >
                   {item.name}
                 </Link>
               )
             })}
-            <div className="border-t border-gray-800 px-4 py-3 mt-2">
-              <p className="text-sm text-gray-400">{userName}</p>
+            <div className="border-t border-gray-100 px-4 py-3 mt-2">
+              <p className="text-sm text-gray-500">{userName}</p>
               <form action="/api/auth/signout" method="POST">
-                <button type="submit" className="text-sm text-red-400 hover:text-red-300 mt-1">
+                <button type="submit" className="text-sm text-red-500 hover:text-red-600 mt-1">
                   Déconnexion
                 </button>
               </form>

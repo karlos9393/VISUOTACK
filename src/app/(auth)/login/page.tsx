@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -36,14 +37,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-app px-4">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">CYGA</h1>
-          <p className="text-gray-500 mt-2">Connecte-toi pour accéder à ton espace</p>
+        <div className="flex flex-col items-center text-center mb-8">
+          <Image src="/cyga-logo.png" alt="CYGA" width={798} height={313} priority className="h-12 w-auto" />
+          <p className="text-gray-500 mt-4">Connecte-toi pour accéder à ton espace</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
           <Input
             label="Email"
             type="email"

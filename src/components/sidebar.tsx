@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import type { Role } from '@/lib/types'
@@ -15,6 +16,7 @@ const navigation = [
   { name: 'KINDASAMA', href: '/crm-tracker', roles: ['admin', 'manager', 'setter'] as Role[], icon: CrmTrackerIcon },
   { name: 'Calendrier', href: '/contenu/calendrier', roles: ['admin'] as Role[], icon: CalendarIcon },
   { name: 'Performance', href: '/contenu/performance', roles: ['admin'] as Role[], icon: ChartIcon },
+  { name: 'Le Générateur', href: '/contenu/generateur', roles: ['admin'] as Role[], icon: SparklesIcon },
   { name: 'Admin', href: '/admin', roles: ['admin'] as Role[], icon: CogIcon },
 ]
 
@@ -23,10 +25,19 @@ export function Sidebar({ role, userName }: SidebarProps) {
   const filteredNav = navigation.filter((item) => item.roles.includes(role))
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 w-64 bg-gray-900 text-white flex flex-col">
-      <div className="flex items-center gap-2 px-6 py-5 border-b border-gray-800">
-        <span className="text-xl font-bold">CYGA</span>
-        <span className="text-xs text-gray-400 bg-gray-800 px-2 py-0.5 rounded-full">{role}</span>
+    <aside className="fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 flex flex-col">
+      <div className="flex items-center gap-3 px-6 py-5 border-b border-gray-100">
+        <Image
+          src="/cyga-logo.png"
+          alt="CYGA"
+          width={798}
+          height={313}
+          priority
+          className="h-9 w-auto"
+        />
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-primary bg-primary-soft px-2 py-0.5 rounded-full">
+          {role}
+        </span>
       </div>
       <nav className="flex-1 px-3 py-4 space-y-1">
         {filteredNav.map((item) => {
@@ -36,10 +47,10 @@ export function Sidebar({ role, userName }: SidebarProps) {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
                 isActive
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-primary-soft hover:text-primary'
               )}
             >
               <item.icon className="w-5 h-5 flex-shrink-0" />
@@ -48,15 +59,15 @@ export function Sidebar({ role, userName }: SidebarProps) {
           )
         })}
       </nav>
-      <div className="px-4 py-4 border-t border-gray-800">
+      <div className="px-4 py-4 border-t border-gray-100">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold">
+          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-sm font-bold text-white">
             {userName.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">{userName}</p>
+            <p className="text-sm font-medium text-gray-900 truncate">{userName}</p>
             <form action="/api/auth/signout" method="POST">
-              <button type="submit" className="text-xs text-gray-400 hover:text-white transition-colors">
+              <button type="submit" className="text-xs text-gray-400 hover:text-primary transition-colors">
                 Déconnexion
               </button>
             </form>
@@ -79,6 +90,14 @@ function ChartIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  )
+}
+
+function SparklesIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L20 12l-5.714 2.143L12 21l-2.286-6.857L4 12l5.714-2.143L12 3z" />
     </svg>
   )
 }

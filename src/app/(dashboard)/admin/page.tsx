@@ -69,10 +69,10 @@ export default async function AdminPage({
                   <td className="py-3 px-2">
                     <Badge className={
                       user.role === 'admin'
-                        ? 'bg-purple-100 text-purple-700'
+                        ? 'bg-primary-soft text-primary'
                         : user.role === 'manager'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-gray-100 text-gray-700'
+                        ? 'bg-gray-200 text-gray-700'
+                        : 'bg-gray-100 text-gray-500'
                     }>
                       {user.role}
                     </Badge>

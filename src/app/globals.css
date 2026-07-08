@@ -2,8 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Palette CYGA (versant clair) */
+  --color-primary: #e8564b;
+  --color-primary-hover: #d4453a;
+  --color-primary-soft: #fdecea;
+  --color-app-bg: #f8f9fa;
+  --color-surface: #ffffff;
+  --color-text: #1a1a1a;
+  --color-text-muted: #6b7280;
+  --color-border: #e5e7eb;
+  --color-success: #22c55e;
+}
+
 body {
-  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  background-color: var(--color-app-bg);
+  color: var(--color-text);
 }
 
 @layer utilities {

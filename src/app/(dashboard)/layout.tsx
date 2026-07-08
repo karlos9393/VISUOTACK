@@ -85,7 +85,7 @@ export default async function DashboardLayout({
 
   return (
     <ToastProvider>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-app">
         <Sidebar role={profile.role as Role} userName={profile.full_name || profile.email} />
         <MobileNav role={profile.role as Role} userName={profile.full_name || profile.email} />
         <main className="lg:pl-64 pt-14 lg:pt-0">
