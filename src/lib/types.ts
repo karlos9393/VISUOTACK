@@ -76,6 +76,19 @@ export interface ContentWeeklySnapshot {
   created_at: string
 }
 
+export interface GenerateurScript {
+  id: string
+  media_id: string
+  permalink: string | null
+  caption: string | null
+  script_hook: string | null
+  script_body: string | null
+  script_sections: unknown | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type Offer = 'formation' | 'accompagnement' | 'dfy'
 export type PaymentType = 'complet' | 'acompte' | 'solde'
 
