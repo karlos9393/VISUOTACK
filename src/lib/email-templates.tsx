@@ -1,6 +1,6 @@
 import * as React from 'react'
 
-const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ? 'https://your-app.vercel.app' : 'http://localhost:3000'
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
 interface EmailLayoutProps {
   children: React.ReactNode
@@ -55,6 +55,53 @@ export function SetterInactiveAlertEmail({ date }: { date: string }) {
       <p style={{ color: '#6b7280', fontSize: '13px' }}>
         Conversations = 0 et liens envoyés = 0.
       </p>
+    </EmailLayout>
+  )
+}
+
+export function TokenExpiryAlertEmail({
+  daysRemaining,
+  expiresAt,
+  invalid,
+}: {
+  daysRemaining: number | null
+  expiresAt: string | null
+  invalid: boolean
+}) {
+  const expiryLabel = expiresAt
+    ? new Date(expiresAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '—'
+
+  return (
+    <EmailLayout>
+      <p style={{ color: '#374151', fontSize: '14px', lineHeight: '1.6' }}>
+        <strong style={{ color: '#dc2626' }}>
+          {invalid ? 'Token Instagram INVALIDE' : 'Token Instagram bientôt expiré'}
+        </strong>
+      </p>
+      <p style={{ color: '#4b5563', fontSize: '13px', lineHeight: '1.6' }}>
+        {invalid ? (
+          <>Le token Instagram de la plateforme n&apos;est plus valide. Les stats de la section Contenu sont à zéro tant qu&apos;il n&apos;est pas remplacé.</>
+        ) : (
+          <>Le token Instagram expire dans <strong>{daysRemaining} jour(s)</strong> (le {expiryLabel}). Remplace-le avant cette date pour éviter toute coupure des stats.</>
+        )}
+      </p>
+      <a
+        href={`${baseUrl}/admin`}
+        style={{
+          display: 'inline-block',
+          backgroundColor: '#2563eb',
+          color: '#ffffff',
+          padding: '12px 24px',
+          borderRadius: '8px',
+          textDecoration: 'none',
+          fontSize: '14px',
+          fontWeight: '600',
+          marginTop: '15px',
+        }}
+      >
+        Gérer le token
+      </a>
     </EmailLayout>
   )
 }

@@ -2,7 +2,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { Card, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { AdminActions } from '@/components/admin-actions'
+import { InstagramTokenCard } from '@/components/admin-instagram-token'
+import { getTokenStatus } from '@/lib/services/instagram'
 import Link from 'next/link'
+
+export const dynamic = 'force-dynamic'
 
 const PAGE_SIZE = 20
 
@@ -25,9 +29,22 @@ export default async function AdminPage({
 
   const totalPages = Math.ceil((count || 0) / PAGE_SIZE)
 
+  const tokenStatus = await getTokenStatus()
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Gestion utilisateurs</h1>
+
+      <InstagramTokenCard
+        initialStatus={{
+          valid: tokenStatus.valid,
+          neverExpires: tokenStatus.neverExpires,
+          expiresAt: tokenStatus.expiresAt,
+          daysRemaining: tokenStatus.daysRemaining,
+          type: tokenStatus.type,
+          error: tokenStatus.error,
+        }}
+      />
 
       <Card>
         <CardTitle>Utilisateurs ({count || 0})</CardTitle>

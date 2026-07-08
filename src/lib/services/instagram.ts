@@ -1,8 +1,49 @@
 const IG_ACCOUNT_ID = process.env.META_INSTAGRAM_ACCOUNT_ID
 const BASE_URL = 'https://graph.facebook.com/v22.0'
 
-function getToken(): string {
-  return process.env.META_INSTAGRAM_ACCESS_TOKEN || ''
+// Clé app_config où vit le token (source de vérité, rotable sans redéploiement)
+export const TOKEN_CONFIG_KEY = 'meta_instagram_access_token'
+export const TOKEN_EXPIRY_CONFIG_KEY = 'meta_instagram_token_expires_at'
+
+// Cache mémoire du token (par instance lambda) pour éviter un aller-retour DB à chaque appel Graph
+const TOKEN_CACHE_MS = 5 * 60 * 1000
+let cachedToken: { value: string; fetchedAt: number } | null = null
+
+/**
+ * Récupère le token Instagram.
+ * Priorité : table app_config (rotable à chaud) → variable d'env (fallback).
+ * Lecture DB via le client service_role, mise en cache 5 min.
+ */
+async function getToken(): Promise<string> {
+  if (cachedToken && Date.now() - cachedToken.fetchedAt < TOKEN_CACHE_MS) {
+    return cachedToken.value
+  }
+
+  let token = ''
+  try {
+    // Import paresseux : évite d'embarquer le client admin dans un bundle client
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const admin = createAdminClient()
+    const { data } = await admin
+      .from('app_config')
+      .select('value')
+      .eq('key', TOKEN_CONFIG_KEY)
+      .single()
+    token = data?.value?.trim() || ''
+  } catch {
+    token = ''
+  }
+
+  // Fallback env var (compat + bootstrap initial)
+  if (!token) token = process.env.META_INSTAGRAM_ACCESS_TOKEN?.trim() || ''
+
+  cachedToken = { value: token, fetchedAt: Date.now() }
+  return token
+}
+
+/** Vide le cache mémoire du token (à appeler après une rotation manuelle). */
+export function invalidateTokenCache(): void {
+  cachedToken = null
 }
 
 export interface IGAccountStats {
@@ -57,7 +98,7 @@ export interface IGAccountInsightsDay {
 
 // Stats du compte (followers, nb posts)
 export async function getAccountStats(): Promise<IGAccountStats | null> {
-  const token = getToken()
+  const token = await getToken()
   if (!token) return null
 
   try {
@@ -74,7 +115,7 @@ export async function getAccountStats(): Promise<IGAccountStats | null> {
 
 // Liste des 50 derniers posts avec stats de base
 export async function getMediaList(): Promise<IGMedia[]> {
-  const token = getToken()
+  const token = await getToken()
   if (!token) return []
 
   try {
@@ -92,7 +133,7 @@ export async function getMediaList(): Promise<IGMedia[]> {
 
 // Insights d'un post (vues, saves, likes, etc.)
 export async function getMediaInsights(mediaId: string, mediaType: string): Promise<IGMediaInsights> {
-  const token = getToken()
+  const token = await getToken()
   if (!token) return {}
 
   try {
@@ -151,7 +192,7 @@ export async function getMediaInsights(mediaId: string, mediaType: string): Prom
 
 // Insights du compte sur une période (données par jour)
 export async function getAccountInsights(since: string, until: string): Promise<IGAccountInsightsDay[]> {
-  const token = getToken()
+  const token = await getToken()
   if (!token) return []
 
   try {
@@ -187,7 +228,7 @@ export async function getAccountInsights(since: string, until: string): Promise<
 
 // Posts d'une période (filtré par since/until en Unix timestamp)
 export async function getPostsForPeriod(start: Date, end: Date): Promise<IGMedia[]> {
-  const token = getToken()
+  const token = await getToken()
   if (!token) return []
 
   const since = Math.floor(start.getTime() / 1000)
@@ -224,4 +265,71 @@ export async function refreshLongLivedToken(currentToken: string): Promise<strin
   } catch {
     return null
   }
+}
+
+// ---- Surveillance de validité / expiration du token ----
+
+export interface IGTokenStatus {
+  valid: boolean
+  neverExpires: boolean
+  expiresAt: string | null // ISO 8601, ou null si jamais d'expiration / inconnu
+  daysRemaining: number | null
+  type?: string // ex. 'USER', 'PAGE', 'SYSTEM_USER'
+  scopes?: string[]
+  error?: string
+}
+
+/**
+ * Interroge l'endpoint Meta /debug_token pour connaître la validité et la date
+ * d'expiration exacte d'un token. Nécessite META_APP_ID + META_APP_SECRET.
+ * expires_at === 0 côté Meta = token qui n'expire jamais (System User "Never").
+ */
+export async function debugToken(token: string): Promise<IGTokenStatus> {
+  const appId = process.env.META_APP_ID
+  const appSecret = process.env.META_APP_SECRET
+
+  if (!token) {
+    return { valid: false, neverExpires: false, expiresAt: null, daysRemaining: null, error: 'Aucun token configuré' }
+  }
+  if (!appId || !appSecret) {
+    return { valid: false, neverExpires: false, expiresAt: null, daysRemaining: null, error: 'META_APP_ID / META_APP_SECRET manquants' }
+  }
+
+  try {
+    const res = await fetch(
+      `${BASE_URL}/debug_token?input_token=${token}&access_token=${appId}|${appSecret}`,
+      { cache: 'no-store' }
+    )
+    const json = await res.json()
+    const d = json?.data
+
+    if (!d) {
+      return { valid: false, neverExpires: false, expiresAt: null, daysRemaining: null, error: json?.error?.message || 'Réponse debug_token vide' }
+    }
+
+    const expiresAtUnix: number = d.expires_at ?? 0
+    const neverExpires = !expiresAtUnix // 0 (ou absent) = jamais d'expiration
+    const expiresAt = neverExpires ? null : new Date(expiresAtUnix * 1000).toISOString()
+    const daysRemaining = neverExpires
+      ? null
+      : Math.floor((expiresAtUnix * 1000 - Date.now()) / 86_400_000)
+
+    return {
+      valid: Boolean(d.is_valid),
+      neverExpires,
+      expiresAt,
+      daysRemaining,
+      type: d.type,
+      scopes: d.scopes,
+      error: d.is_valid ? undefined : (json?.error?.message || 'Token invalide'),
+    }
+  } catch (e) {
+    return { valid: false, neverExpires: false, expiresAt: null, daysRemaining: null, error: String(e) }
+  }
+}
+
+/** Statut du token actuellement configuré (app_config → env fallback). */
+export async function getTokenStatus(): Promise<IGTokenStatus> {
+  const token = await getToken()
+  return debugToken(token)
 }
