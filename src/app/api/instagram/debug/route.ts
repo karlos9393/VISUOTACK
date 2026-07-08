@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import {
+  getMediaList,
+  getAccountStats,
+  debugToken,
+  TOKEN_CONFIG_KEY,
+} from '@/lib/services/instagram'
 
 const BASE_URL = 'https://graph.facebook.com/v22.0'
 
-/**
- * Masque le token dans la sortie : la réponse Meta contient l'access_token
- * dans les URLs de pagination (paging.next). On le retire avant de renvoyer.
- */
+/** Masque tout token présent dans la sortie (URLs de pagination Meta). */
 function sanitize(value: unknown, token: string): unknown {
   let str = JSON.stringify(value)
   if (token) str = str.split(token).join('REDACTED')
@@ -21,56 +25,62 @@ export async function GET() {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  const token = process.env.META_INSTAGRAM_ACCESS_TOKEN
+  const envToken = process.env.META_INSTAGRAM_ACCESS_TOKEN?.trim() || ''
   const accountId = process.env.META_INSTAGRAM_ACCOUNT_ID
-
-  if (!token || !accountId) {
-    return NextResponse.json({
-      error: 'Variables manquantes',
-      hasToken: !!token,
-      hasAccountId: !!accountId,
-    })
-  }
 
   const results: Record<string, unknown> = {}
 
-  // 1) Récupérer un post récent
+  // --- DIAGNOSTIC SOURCES DE TOKEN ---
+  // Token en base (app_config) — ce que lisent RÉELLEMENT les pages en priorité
+  let dbToken = ''
   try {
-    const mediaRes = await fetch(
-      `${BASE_URL}/${accountId}/media?fields=id,media_type,timestamp,caption&limit=3&access_token=${token}`,
-      { cache: 'no-store' }
-    )
-    results.mediaListStatus = mediaRes.status
-    const mediaData = await mediaRes.json()
-    results.mediaList = mediaData
-
-    if (mediaData.data?.[0]) {
-      const post = mediaData.data[0]
-      const postId = post.id
-      const mediaType = post.media_type
-
-      results.testPost = { id: postId, media_type: mediaType, caption: (post.caption || '').slice(0, 50) }
-
-      // 2) Tester avec les métriques corrigées (views au lieu de plays)
-      const metricsVideo = 'views,saved,likes,comments,shares,reach'
-      const metricsImage = 'impressions,saved,likes,comments,shares,reach'
-      const metrics = (mediaType === 'VIDEO' || mediaType === 'REEL') ? metricsVideo : metricsImage
-
-      const urlFull = `${BASE_URL}/${postId}/insights?metric=${metrics}&access_token=${token}`
-      const res1 = await fetch(urlFull, { cache: 'no-store' })
-      const body1 = await res1.json()
-      results.fullMetrics = { metrics, status: res1.status, body: body1 }
-
-      // 3) Tester juste "views" seul
-      const urlViews = `${BASE_URL}/${postId}/insights?metric=views&access_token=${token}`
-      const res2 = await fetch(urlViews, { cache: 'no-store' })
-      const body2 = await res2.json()
-      results.viewsOnly = { status: res2.status, body: body2 }
-    }
+    const admin = createAdminClient()
+    const { data } = await admin
+      .from('app_config')
+      .select('value')
+      .eq('key', TOKEN_CONFIG_KEY)
+      .single()
+    dbToken = data?.value?.trim() || ''
   } catch (e) {
-    results.error = String(e)
+    results.dbReadError = String(e)
   }
 
-  // Masquer tout token présent dans la réponse (URLs de pagination Meta)
-  return NextResponse.json(sanitize(results, token), { status: 200 })
+  results.sources = {
+    env: { present: !!envToken, length: envToken.length, valid: (await debugToken(envToken)).valid },
+    db: {
+      present: !!dbToken,
+      length: dbToken.length,
+      valid: dbToken ? (await debugToken(dbToken)).valid : null,
+    },
+    effectiveSource: dbToken ? 'DB (app_config)' : (envToken ? 'ENV' : 'AUCUN'),
+  }
+
+  // --- CHEMIN RÉEL DES PAGES (getToken app_config-first) ---
+  const realMedia = await getMediaList()
+  const realStats = await getAccountStats()
+  results.realPath = {
+    getMediaList_count: realMedia.length,
+    getAccountStats_ok: !!realStats,
+  }
+
+  if (!envToken || !accountId) {
+    results.env = { hasToken: !!envToken, hasAccountId: !!accountId }
+    return NextResponse.json(sanitize(results, envToken), { status: 200 })
+  }
+
+  // --- TEST DIRECT avec l'ENV token, champs COMPLETS (comme getMediaList) ---
+  try {
+    const fullUrl = `${BASE_URL}/${accountId}/media?fields=id,caption,media_type,media_url,thumbnail_url,timestamp,like_count,comments_count,permalink&limit=50&access_token=${envToken}`
+    const res = await fetch(fullUrl, { cache: 'no-store' })
+    const body = await res.json()
+    results.fullFieldsTest = {
+      status: res.status,
+      count: Array.isArray(body?.data) ? body.data.length : 0,
+      error: body?.error ?? null,
+    }
+  } catch (e) {
+    results.fullFieldsTest = { error: String(e) }
+  }
+
+  return NextResponse.json(sanitize(results, envToken), { status: 200 })
 }
