@@ -3,6 +3,17 @@ import { createClient } from '@/lib/supabase/server'
 
 const BASE_URL = 'https://graph.facebook.com/v22.0'
 
+/**
+ * Masque le token dans la sortie : la réponse Meta contient l'access_token
+ * dans les URLs de pagination (paging.next). On le retire avant de renvoyer.
+ */
+function sanitize(value: unknown, token: string): unknown {
+  let str = JSON.stringify(value)
+  if (token) str = str.split(token).join('REDACTED')
+  str = str.replace(/access_token=[^&"\\]+/g, 'access_token=REDACTED')
+  return JSON.parse(str)
+}
+
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -60,5 +71,6 @@ export async function GET() {
     results.error = String(e)
   }
 
-  return NextResponse.json(results, { status: 200 })
+  // Masquer tout token présent dans la réponse (URLs de pagination Meta)
+  return NextResponse.json(sanitize(results, token), { status: 200 })
 }
