@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { InstagramEmbed } from './instagram-embed'
 import { ScriptPanel } from './script-panel'
@@ -10,7 +10,21 @@ import {
   type ScriptCatalogItem,
   type PostScriptLink,
 } from '@/lib/actions/generateur'
+import { statutOf, type ScriptStatut } from '@/lib/types'
 import type { IGMedia, IGMediaInsights } from '@/lib/services/instagram'
+
+const FILTERS: { key: ScriptStatut | 'all'; label: string }[] = [
+  { key: 'a_associer', label: 'À faire' },
+  { key: 'associe', label: 'Associés' },
+  { key: 'script_non_trouve', label: 'Script pas trouvé' },
+  { key: 'all', label: 'Tout' },
+]
+
+const STATUT_BADGE: Record<ScriptStatut, { cls: string; label: string }> = {
+  associe: { cls: 'bg-green-100 text-green-700', label: '✓ script' },
+  script_non_trouve: { cls: 'bg-orange-100 text-orange-700', label: '🚫 pas trouvé' },
+  a_associer: { cls: 'bg-gray-100 text-gray-400', label: 'à associer' },
+}
 
 function formatType(type: string) {
   switch (type) {
@@ -32,12 +46,30 @@ interface GenerateurDashboardProps {
 }
 
 export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks }: GenerateurDashboardProps) {
-  const [selectedId, setSelectedId] = useState<string | null>(initialMedia[0]?.id ?? null)
-  const selectedPost = initialMedia.find((m) => m.id === selectedId) ?? null
-
   // Liens post <-> script (indexés par media_id)
   const [links, setLinks] = useState<Record<string, PostScriptLink>>(() =>
     Object.fromEntries(initialLinks.map((l) => [l.media_id, l]))
+  )
+
+  // Filtre actif — "À faire" par défaut (on ne voit que le travail restant)
+  const [filter, setFilter] = useState<ScriptStatut | 'all'>('a_associer')
+
+  // Sélection par défaut : premier post "à faire"
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    const firstTodo = initialMedia.find((m) => statutOf(links[m.id]) === 'a_associer')
+    return (firstTodo ?? initialMedia[0])?.id ?? null
+  })
+  const selectedPost = initialMedia.find((m) => m.id === selectedId) ?? null
+
+  const counts = useMemo(() => {
+    const c: Record<ScriptStatut, number> = { a_associer: 0, associe: 0, script_non_trouve: 0 }
+    for (const m of initialMedia) c[statutOf(links[m.id])]++
+    return c
+  }, [initialMedia, links])
+
+  const filteredMedia = useMemo(
+    () => (filter === 'all' ? initialMedia : initialMedia.filter((m) => statutOf(links[m.id]) === filter)),
+    [initialMedia, links, filter]
   )
 
   // Catalogue des 184 scripts (chargé une fois côté client)
@@ -65,6 +97,9 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks }
       delete next[mediaId]
       return next
     })
+  }
+  function handleMarkNotFound(mediaId: string) {
+    setLinks((prev) => ({ ...prev, [mediaId]: { media_id: mediaId, script_id: null, script_override: null } }))
   }
   function handleOverrideSaved(mediaId: string, text: string) {
     setLinks((prev) => {
@@ -97,23 +132,39 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks }
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] gap-6">
         {/* COLONNE GAUCHE — Contenu */}
         <div className="rounded-xl border border-gray-200 bg-white flex flex-col min-h-0">
-          <div className="px-4 py-3 border-b border-gray-100">
-            <h2 className="text-sm font-semibold text-gray-900">
-              Contenu <span className="text-gray-400 font-normal">({initialMedia.length})</span>
-            </h2>
+          <div className="px-3 py-3 border-b border-gray-100">
+            <div className="flex flex-wrap gap-1.5">
+              {FILTERS.map((f) => {
+                const n = f.key === 'all' ? initialMedia.length : counts[f.key]
+                const active = filter === f.key
+                return (
+                  <button
+                    key={f.key}
+                    onClick={() => setFilter(f.key)}
+                    className={`text-xs font-medium px-2.5 py-1 rounded-full transition-colors ${
+                      active ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {f.label} ({n})
+                  </button>
+                )
+              })}
+            </div>
           </div>
           <div className="p-3 space-y-2 overflow-y-auto max-h-[calc(100vh-220px)]">
-            {initialMedia.map((post) => (
+            {filteredMedia.map((post) => (
               <PostCard
                 key={post.id}
                 post={post}
                 selected={post.id === selectedId}
-                hasScript={Boolean(links[post.id]?.script_id)}
+                statut={statutOf(links[post.id])}
                 onSelect={() => setSelectedId(post.id)}
               />
             ))}
-            {initialMedia.length === 0 && (
-              <p className="text-sm text-gray-400 text-center py-10">Aucun post à afficher</p>
+            {filteredMedia.length === 0 && (
+              <p className="text-sm text-gray-400 text-center py-10">
+                {initialMedia.length === 0 ? 'Aucun post à afficher' : 'Rien dans cette catégorie'}
+              </p>
             )}
           </div>
         </div>
@@ -150,6 +201,7 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks }
                 catalog={catalog}
                 onLinked={handleLinked}
                 onUnlinked={handleUnlinked}
+                onMarkNotFound={handleMarkNotFound}
                 onOverrideSaved={handleOverrideSaved}
               />
             </>
@@ -167,15 +219,16 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks }
 function PostCard({
   post,
   selected,
-  hasScript,
+  statut,
   onSelect,
 }: {
   post: IGMedia
   selected: boolean
-  hasScript: boolean
+  statut: ScriptStatut
   onSelect: () => void
 }) {
   const typeBadge = formatType(post.media_type)
+  const statutBadge = STATUT_BADGE[statut]
   const thumb = post.thumbnail_url || post.media_url
   const caption = post.caption
     ? post.caption.length > 70 ? post.caption.slice(0, 70) + '…' : post.caption
@@ -202,11 +255,9 @@ function PostCard({
           <Badge className={typeBadge.className}>{typeBadge.label}</Badge>
           <span className="text-xs text-gray-400">{date}</span>
           <span
-            className={`ml-auto inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-              hasScript ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'
-            }`}
+            className={`ml-auto inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${statutBadge.cls}`}
           >
-            {hasScript ? '✓ script' : 'à associer'}
+            {statutBadge.label}
           </span>
         </div>
         <p className="text-xs text-gray-700 line-clamp-2 leading-snug">{caption}</p>

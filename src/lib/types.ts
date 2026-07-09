@@ -89,6 +89,17 @@ export interface GenerateurScript {
   updated_at: string
 }
 
+export type ScriptStatut = 'a_associer' | 'associe' | 'script_non_trouve'
+
+// Statut dérivé de l'état du lien :
+//  - pas de ligne          → 'a_associer' (pas encore traité)
+//  - ligne avec script_id  → 'associe'
+//  - ligne sans script_id  → 'script_non_trouve' (marqué introuvable)
+export function statutOf(link?: { script_id: string | null } | null): ScriptStatut {
+  if (!link) return 'a_associer'
+  return link.script_id ? 'associe' : 'script_non_trouve'
+}
+
 export type Offer = 'formation' | 'accompagnement' | 'dfy'
 export type PaymentType = 'complet' | 'acompte' | 'solde'
 

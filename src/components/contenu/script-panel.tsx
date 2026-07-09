@@ -7,6 +7,7 @@ import type { IGMedia } from '@/lib/services/instagram'
 import {
   linkScript,
   unlinkScript,
+  markNotFound,
   saveOverride,
   type ScriptCatalogItem,
   type PostScriptLink,
@@ -21,14 +22,16 @@ interface ScriptPanelProps {
   catalog: ScriptCatalogItem[] | null
   onLinked: (mediaId: string, scriptId: string) => void
   onUnlinked: (mediaId: string) => void
+  onMarkNotFound: (mediaId: string) => void
   onOverrideSaved: (mediaId: string, text: string) => void
 }
 
-export function ScriptPanel({ post, link, catalog, onLinked, onUnlinked, onOverrideSaved }: ScriptPanelProps) {
+export function ScriptPanel({ post, link, catalog, onLinked, onUnlinked, onMarkNotFound, onOverrideSaved }: ScriptPanelProps) {
   const [selectorOpen, setSelectorOpen] = useState(false)
   const [busy, setBusy] = useState(false)
 
   const linked = Boolean(link?.script_id)
+  const notFound = Boolean(link && !link.script_id)
   const source = useMemo(
     () => (linked && catalog ? catalog.find((s) => String(s.id) === String(link!.script_id)) : undefined),
     [linked, catalog, link]
@@ -105,6 +108,13 @@ export function ScriptPanel({ post, link, catalog, onLinked, onUnlinked, onOverr
     if (!result.error) onUnlinked(post.id)
   }
 
+  async function handleMarkNotFound() {
+    setBusy(true)
+    const result = await markNotFound(post.id)
+    setBusy(false)
+    if (!result.error) onMarkNotFound(post.id)
+  }
+
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5">
       <div className="flex items-center justify-between mb-4">
@@ -112,13 +122,30 @@ export function ScriptPanel({ post, link, catalog, onLinked, onUnlinked, onOverr
         {linked && <SaveIndicator state={saveState} />}
       </div>
 
-      {!linked ? (
-        // CAS 1 — aucun script lié
+      {notFound ? (
+        // CAS 3 — marqué "script pas trouvé"
+        <div className="text-center py-6">
+          <div className="inline-flex items-center gap-2 text-sm font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded-full px-3 py-1 mb-3">
+            🚫 Script pas trouvé
+          </div>
+          <div>
+            <Button variant="secondary" onClick={handleUnlink} disabled={busy}>
+              Annuler / Rechercher à nouveau
+            </Button>
+          </div>
+        </div>
+      ) : !linked ? (
+        // CAS 1 — aucun script lié → associer OU marquer pas trouvé
         <div className="text-center py-6">
           <p className="text-sm text-gray-400 mb-3">Aucun script associé à ce post.</p>
-          <Button onClick={() => setSelectorOpen(true)} disabled={busy}>
-            ＋ Associer un script
-          </Button>
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            <Button onClick={() => setSelectorOpen(true)} disabled={busy}>
+              ＋ Associer un script
+            </Button>
+            <Button variant="secondary" onClick={handleMarkNotFound} disabled={busy}>
+              🚫 Script pas trouvé
+            </Button>
+          </div>
         </div>
       ) : (
         // CAS 2 — script lié

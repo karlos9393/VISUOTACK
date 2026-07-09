@@ -111,6 +111,27 @@ export async function unlinkScript(mediaId: string) {
   return { success: true }
 }
 
+/** Marque un post comme "script pas trouvé" (ligne créée sans script_id → statut dérivé). */
+export async function markNotFound(mediaId: string) {
+  const adminId = await requireAdmin()
+  if (!adminId) return { error: 'Accès refusé' }
+  if (!mediaId) return { error: 'media_id manquant' }
+
+  const admin = createAdminClient()
+  const { error } = await admin.from('post_script_links').upsert(
+    {
+      media_id: mediaId,
+      script_id: null,
+      script_override: null,
+      linked_at: new Date().toISOString(),
+    },
+    { onConflict: 'media_id' }
+  )
+
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
 /** Sauvegarde le texte édité par-post dans script_override (jamais dans la source). */
 export async function saveOverride(mediaId: string, text: string) {
   const adminId = await requireAdmin()

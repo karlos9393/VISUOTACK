@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getMediaList, getMediaInsights, type IGMedia } from '@/lib/services/instagram'
+import { statutOf } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -125,8 +126,8 @@ export async function GET(request: NextRequest) {
 
   const header = [
     'date_publication', 'permalink', 'format', 'caption', 'vues', 'likes', 'commentaires',
-    'saves', 'reach', 'taux_engagement', 'script_associe', 'script_titre', 'script_partie',
-    'script_semaine', 'script_source',
+    'saves', 'reach', 'taux_engagement', 'statut', 'script_associe', 'script_titre',
+    'script_partie', 'script_semaine', 'script_source',
   ]
 
   const lines = [header.join(',')]
@@ -151,6 +152,7 @@ export async function GET(request: NextRequest) {
       csvCell(saves),
       csvCell(ins.reach || 0),
       csvCell(eng),
+      csvCell(statutOf(link)),
       csvCell(scriptText),
       csvCell(script?.titre ?? ''),
       csvCell(script?.partie ?? ''),
