@@ -25,82 +25,107 @@ const STOP_WORDS = new Set([
   'elle', 'elles', 'il', 'je', 'tu', 'on', 'ne', 'pas', 'plus', 'est',
 ].map(normalize))
 
-// Index normalisé calculé une fois (titre + contenu par script)
+const SNIPPET_CONTEXT = 8 // mots de contexte de chaque côté
+const FALLBACK_WORDS = 20 // aperçu quand le match est dans le titre uniquement
+
 interface IndexedScript {
   item: ScriptCatalogItem
   titleN: string
   bodyN: string
+  words: string[]
+  wordsN: string[]
+}
+
+interface Snippet {
+  text: string
+  prefix: boolean
+  suffix: boolean
 }
 
 interface Scored {
   item: ScriptCatalogItem
   score: number
+  snippet: Snippet | null
 }
 
+// --- Scoring de pertinence ---
 function scoreOne(entry: IndexedScript, queryNorm: string, contentTokens: string[]): number {
   const { titleN, bodyN } = entry
   let score = 0
   let matched = 0
-
   for (const tok of contentTokens) {
     let hit = false
     if (titleN.includes(tok)) { score += 10; hit = true }
     if (bodyN.includes(tok)) { score += 3; hit = true }
     if (hit) matched++
   }
-
-  // Favoriser les scripts qui contiennent le PLUS de termes de la requête
   if (contentTokens.length > 0) {
     score += matched * 5
-    if (matched === contentTokens.length) score += 10 // tous les mots présents
+    if (matched === contentTokens.length) score += 10
   }
-
-  // Bonus phrase exacte (garde les stop words : "parc avec lilia")
   const phrase = queryNorm.trim()
   const exact = phrase.length > 0 && (titleN.includes(phrase) || bodyN.includes(phrase))
   if (exact) score += 15
-
-  // Rien de pertinent → 0 (exclu)
   if (matched === 0 && !exact) return 0
   return score
 }
 
-// --- Highlight des termes dans le titre (accent-insensible, alignement 1:1) ---
-function highlightTitle(title: string, tokens: string[]) {
-  if (tokens.length === 0) return title
-  const chars = Array.from(title)
-  let norm = ''
-  const map: number[] = [] // position dans `norm` -> index du char d'origine
-  chars.forEach((ch, i) => {
-    for (const c of normalize(ch)) { norm += c; map.push(i) }
-  })
+// --- Extraction du meilleur extrait (façon Ctrl+F) ---
+function buildSnippet(entry: IndexedScript, contentTokens: string[]): Snippet | null {
+  const { words, wordsN } = entry
+  if (words.length === 0) return null
 
-  const hl = new Array<boolean>(chars.length).fill(false)
-  for (const tok of tokens) {
-    if (!tok) continue
-    let from = 0
-    let pos = norm.indexOf(tok, from)
-    while (pos !== -1) {
-      for (let k = pos; k < pos + tok.length && k < map.length; k++) hl[map[k]] = true
-      from = pos + tok.length
-      pos = norm.indexOf(tok, from)
+  // Indices des mots qui matchent un token de la requête
+  const matches: number[] = []
+  for (let i = 0; i < wordsN.length; i++) {
+    for (const t of contentTokens) {
+      if (t && wordsN[i].includes(t)) { matches.push(i); break }
     }
   }
 
-  const nodes: React.ReactNode[] = []
-  let buf = ''
-  let bufHl = hl[0] ?? false
-  const flush = (key: number) => {
-    if (!buf) return
-    nodes.push(bufHl ? <mark key={key} className="bg-primary-soft text-primary rounded px-0.5">{buf}</mark> : <span key={key}>{buf}</span>)
-    buf = ''
+  // Aucun match dans le contenu (match était dans le titre) → aperçu du début
+  if (matches.length === 0) {
+    const end = Math.min(words.length, FALLBACK_WORDS)
+    return { text: words.slice(0, end).join(' '), prefix: false, suffix: end < words.length }
   }
-  chars.forEach((ch, i) => {
-    if (hl[i] !== bufHl) { flush(i); bufHl = hl[i] }
-    buf += ch
+
+  // Meilleure grappe : fenêtre contenant le plus de matches
+  const SPAN = Math.max(4, contentTokens.length + 4)
+  let bestStart = matches[0]
+  let bestCount = -1
+  for (const m of matches) {
+    let c = 0
+    for (const n of matches) if (n >= m && n <= m + SPAN) c++
+    if (c > bestCount) { bestCount = c; bestStart = m }
+  }
+  const clusterEnd = matches.filter((n) => n >= bestStart && n <= bestStart + SPAN).reduce((a, b) => Math.max(a, b), bestStart)
+
+  const start = Math.max(0, bestStart - SNIPPET_CONTEXT)
+  const end = Math.min(words.length, clusterEnd + SNIPPET_CONTEXT + 1)
+  return { text: words.slice(start, end).join(' '), prefix: start > 0, suffix: end < words.length }
+}
+
+// --- Highlight accent-insensible, mot par mot ---
+// Un mot est surligné si un token en est une sous-chaîne. Pour les tokens courts
+// (2 car. : "au", "9h"…) on exige un mot quasi identique, pour éviter de surligner
+// "au" dans "Audio". Les tokens longs (≥3) tolèrent le match partiel ("lili"→"lilia").
+function wordMatches(wordNorm: string, tokens: string[]): boolean {
+  for (const t of tokens) {
+    if (!t) continue
+    if (wordNorm.includes(t) && (t.length >= 3 || wordNorm.length <= t.length + 2)) return true
+  }
+  return false
+}
+
+function highlight(text: string, tokens: string[]) {
+  if (tokens.length === 0 || !text) return text
+  const parts = text.split(/(\s+)/) // conserve les espaces pour reconstruire
+  return parts.map((part, i) => {
+    if (!part || /^\s+$/.test(part)) return <span key={i}>{part}</span>
+    return wordMatches(normalize(part), tokens)
+      ? <mark key={i} className="bg-primary-soft text-primary rounded-sm px-0.5">{part}</mark>
+      : <span key={i}>{part}</span>
   })
-  flush(chars.length)
-  return nodes
 }
 
 // --- Groupement Partie -> Semaine (recherche vide) ---
@@ -123,49 +148,63 @@ export function ScriptSelector({ open, onClose, catalog, currentScriptId, onSele
   const [query, setQuery] = useState('')
   const [debounced, setDebounced] = useState('')
 
-  // Debounce léger (~150ms)
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query), 150)
     return () => clearTimeout(t)
   }, [query])
 
-  // Index normalisé (une seule fois par catalogue)
+  // Index normalisé + découpage en mots (une seule fois par catalogue)
   const index = useMemo<IndexedScript[]>(
-    () => (catalog || []).map((item) => ({ item, titleN: normalize(item.titre), bodyN: normalize(item.contenu) })),
+    () =>
+      (catalog || []).map((item) => {
+        const words = item.contenu ? item.contenu.split(/\s+/).filter(Boolean) : []
+        return {
+          item,
+          titleN: normalize(item.titre),
+          bodyN: normalize(item.contenu),
+          words,
+          wordsN: words.map(normalize),
+        }
+      }),
     [catalog]
   )
 
   const queryNorm = normalize(debounced).trim()
   const allTokens = queryNorm ? queryNorm.split(/\s+/).filter(Boolean) : []
   const contentTokens = allTokens.filter((t) => !STOP_WORDS.has(t))
+  const hlTokens = allTokens.filter((t) => t.length >= 2) // termes à surligner (Ctrl+F)
 
-  // Résultats scorés (null = pas de recherche → vue groupée)
   const scored = useMemo<Scored[] | null>(() => {
     if (!queryNorm) return null
     return index
-      .map((entry) => ({ item: entry.item, score: scoreOne(entry, queryNorm, contentTokens) }))
+      .map((entry) => ({ item: entry.item, score: scoreOne(entry, queryNorm, contentTokens), entry }))
       .filter((r) => r.score > 0)
       .sort((a, b) => b.score - a.score)
+      .map((r) => ({ item: r.item, score: r.score, snippet: buildSnippet(r.entry, contentTokens) }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, queryNorm])
 
   const groups = useMemo(() => (scored === null ? groupScripts(catalog || []) : []), [scored, catalog])
 
-  // Tokens à surligner (mots de contenu ; sinon la requête entière)
-  const highlightTokens = contentTokens.length > 0 ? contentTokens : (queryNorm ? [queryNorm] : [])
-
-  function renderRow(item: ScriptCatalogItem, showLabel: boolean) {
+  function renderRow(item: ScriptCatalogItem, opts: { label?: boolean; snippet?: Snippet | null }) {
     const isCurrent = currentScriptId && String(item.id) === String(currentScriptId)
     return (
       <button
         key={item.id}
         onClick={() => onSelect(item.id)}
         className={`w-full text-left rounded-lg px-3 py-2 text-sm transition-colors border ${
-          isCurrent ? 'border-primary bg-primary-soft text-primary' : 'border-transparent hover:bg-gray-50 text-gray-700'
+          isCurrent ? 'border-primary bg-primary-soft' : 'border-transparent hover:bg-gray-50'
         }`}
       >
-        <span className="line-clamp-1">{highlightTitle(item.titre, highlightTokens)}</span>
-        {showLabel && <span className="block text-[11px] text-gray-400 mt-0.5">{item.semaine_label}</span>}
+        <span className="block line-clamp-1 font-medium text-gray-800">{highlight(item.titre, hlTokens)}</span>
+        {opts.label && <span className="block text-[11px] text-gray-400 mt-0.5">{item.semaine_label}</span>}
+        {opts.snippet && (
+          <span className="block text-[11px] text-gray-500 mt-1 line-clamp-2 leading-snug">
+            {opts.snippet.prefix ? '… ' : ''}
+            {highlight(opts.snippet.text, hlTokens)}
+            {opts.snippet.suffix ? ' …' : ''}
+          </span>
+        )}
       </button>
     )
   }
@@ -176,7 +215,7 @@ export function ScriptSelector({ open, onClose, catalog, currentScriptId, onSele
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Rechercher (ex : parc avec lilia)…"
+        placeholder="Rechercher (ex : je me lève au alentour de 9h)…"
         autoFocus
         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
       />
@@ -185,7 +224,6 @@ export function ScriptSelector({ open, onClose, catalog, currentScriptId, onSele
         {catalog === null ? (
           <p className="text-sm text-gray-400 text-center py-10">Chargement des scripts…</p>
         ) : scored !== null ? (
-          // --- Mode recherche : liste triée par pertinence ---
           scored.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-10">Aucun script ne correspond</p>
           ) : (
@@ -193,11 +231,10 @@ export function ScriptSelector({ open, onClose, catalog, currentScriptId, onSele
               <p className="px-1 pb-1 text-[11px] text-gray-400">
                 {scored.length} résultat{scored.length > 1 ? 's' : ''} — triés par pertinence
               </p>
-              {scored.map((r) => renderRow(r.item, true))}
+              {scored.map((r) => renderRow(r.item, { label: true, snippet: r.snippet }))}
             </div>
           )
         ) : (
-          // --- Recherche vide : groupé Partie -> Semaine ---
           <div className="space-y-5">
             {groups.map((p) => (
               <div key={p.partie}>
@@ -206,7 +243,7 @@ export function ScriptSelector({ open, onClose, catalog, currentScriptId, onSele
                   {p.semaines.map((w) => (
                     <div key={w.semaine_label}>
                       <p className="text-[11px] font-medium text-gray-400 mb-1">{w.semaine_label}</p>
-                      <div className="space-y-1">{w.items.map((s) => renderRow(s, false))}</div>
+                      <div className="space-y-1">{w.items.map((s) => renderRow(s, { label: false }))}</div>
                     </div>
                   ))}
                 </div>
