@@ -31,6 +31,7 @@ export interface PostScriptLink {
   media_id: string
   script_id: string | null
   script_override: string | null
+  note_manuelle?: string | null
 }
 
 /** Catalogue complet des scripts (les 184). Lecture seule — la source n'est jamais modifiée. */
@@ -68,9 +69,8 @@ export async function getAllLinks(): Promise<PostScriptLink[]> {
   if (!adminId) return []
 
   const admin = createAdminClient()
-  const { data } = await admin
-    .from('post_script_links')
-    .select('media_id, script_id, script_override')
+  // select('*') : robuste si la colonne note_manuelle n'existe pas encore (pré-ALTER)
+  const { data } = await admin.from('post_script_links').select('*')
 
   return (data as PostScriptLink[]) || []
 }
@@ -127,6 +127,23 @@ export async function markNotFound(mediaId: string) {
     },
     { onConflict: 'media_id' }
   )
+
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+/** Sauvegarde la note manuelle (description du reel) sur la ligne du post. */
+export async function saveNote(mediaId: string, text: string) {
+  const adminId = await requireAdmin()
+  if (!adminId) return { error: 'Accès refusé' }
+  if (!mediaId) return { error: 'media_id manquant' }
+
+  const admin = createAdminClient()
+  // update-only : ne crée pas de ligne (éviter de flipper un post "à faire")
+  const { error } = await admin
+    .from('post_script_links')
+    .update({ note_manuelle: text })
+    .eq('media_id', mediaId)
 
   if (error) return { error: error.message }
   return { success: true }

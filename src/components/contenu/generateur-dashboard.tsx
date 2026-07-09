@@ -89,7 +89,10 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks }
   }, [])
 
   function handleLinked(mediaId: string, scriptId: string) {
-    setLinks((prev) => ({ ...prev, [mediaId]: { media_id: mediaId, script_id: scriptId, script_override: null } }))
+    setLinks((prev) => ({
+      ...prev,
+      [mediaId]: { ...prev[mediaId], media_id: mediaId, script_id: scriptId, script_override: null },
+    }))
   }
   function handleUnlinked(mediaId: string) {
     setLinks((prev) => {
@@ -99,13 +102,23 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks }
     })
   }
   function handleMarkNotFound(mediaId: string) {
-    setLinks((prev) => ({ ...prev, [mediaId]: { media_id: mediaId, script_id: null, script_override: null } }))
+    setLinks((prev) => ({
+      ...prev,
+      [mediaId]: { ...prev[mediaId], media_id: mediaId, script_id: null, script_override: null },
+    }))
   }
   function handleOverrideSaved(mediaId: string, text: string) {
     setLinks((prev) => {
       const existing = prev[mediaId]
       if (!existing) return prev
       return { ...prev, [mediaId]: { ...existing, script_override: text } }
+    })
+  }
+  function handleNoteSaved(mediaId: string, text: string) {
+    setLinks((prev) => {
+      const existing = prev[mediaId]
+      if (!existing) return prev
+      return { ...prev, [mediaId]: { ...existing, note_manuelle: text } }
     })
   }
 
@@ -204,6 +217,7 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks }
                 onUnlinked={handleUnlinked}
                 onMarkNotFound={handleMarkNotFound}
                 onOverrideSaved={handleOverrideSaved}
+                onNoteSaved={handleNoteSaved}
               />
             </>
           ) : (

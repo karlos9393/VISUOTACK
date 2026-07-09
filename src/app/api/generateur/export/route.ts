@@ -10,7 +10,7 @@ export const maxDuration = 60
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000
 const INSIGHTS_CONCURRENCY = 6
 
-interface LinkRow { media_id: string; script_id: string | null; script_override: string | null }
+interface LinkRow { media_id: string; script_id: string | null; script_override: string | null; note_manuelle?: string | null }
 interface ScriptRow {
   id: string | number
   titre: string | null
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
   // Posts (pagination complète) + liaisons + catalogue + cache insights, en parallèle
   const [posts, linksRes, scriptsRes, cacheRes] = await Promise.all([
     getMediaList(),
-    admin.from('post_script_links').select('media_id, script_id, script_override'),
+    admin.from('post_script_links').select('*'),
     admin.from('generateur_scripts').select('id, titre, partie, semaine, contenu, source'),
     admin.from('post_insights_cache').select('post_id, plays, impressions, saved, reach, fetched_at'),
   ])
@@ -126,8 +126,8 @@ export async function GET(request: NextRequest) {
 
   const header = [
     'date_publication', 'permalink', 'format', 'caption', 'vues', 'likes', 'commentaires',
-    'saves', 'reach', 'taux_engagement', 'statut', 'script_associe', 'script_titre',
-    'script_partie', 'script_semaine', 'script_source',
+    'saves', 'reach', 'taux_engagement', 'statut', 'note_manuelle', 'script_associe',
+    'script_titre', 'script_partie', 'script_semaine', 'script_source',
   ]
 
   const lines = [header.join(',')]
@@ -153,6 +153,7 @@ export async function GET(request: NextRequest) {
       csvCell(ins.reach || 0),
       csvCell(eng),
       csvCell(statutOf(link)),
+      csvCell(link?.note_manuelle ?? ''),
       csvCell(scriptText),
       csvCell(script?.titre ?? ''),
       csvCell(script?.partie ?? ''),
