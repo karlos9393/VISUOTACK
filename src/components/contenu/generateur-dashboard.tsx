@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { InstagramEmbed } from './instagram-embed'
 import { ScriptPanel } from './script-panel'
-import { ClaudeAssistant } from './claude-assistant'
+import { ExportMenu } from './export-menu'
 import {
   getScriptsCatalog,
   type ScriptCatalogItem,
@@ -76,11 +76,14 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Le Générateur</h1>
-        <p className="text-xs text-gray-400 mt-1">
-          Sélectionne un post pour écrire et sauvegarder son script.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Le Générateur</h1>
+          <p className="text-xs text-gray-400 mt-1">
+            Sélectionne un post pour écrire et sauvegarder son script.
+          </p>
+        </div>
+        <ExportMenu />
       </div>
 
       {tokenExpired && (
@@ -149,8 +152,6 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks }
                 onUnlinked={handleUnlinked}
                 onOverrideSaved={handleOverrideSaved}
               />
-
-              <ClaudeAssistant post={selectedPost} />
             </>
           ) : (
             <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center text-sm text-gray-400">
