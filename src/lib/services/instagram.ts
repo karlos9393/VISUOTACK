@@ -138,6 +138,49 @@ export async function getMediaList(maxItems = 1000): Promise<IGMedia[]> {
   }
 }
 
+// Détail FRAIS d'un média (media_url signé non expiré) — pour le player vidéo natif
+export interface IGMediaChild {
+  id: string
+  media_type: string
+  media_url?: string
+  thumbnail_url?: string
+}
+
+export interface IGMediaDetail {
+  id: string
+  media_type: string
+  media_url?: string
+  thumbnail_url?: string
+  permalink: string
+  caption?: string
+  children?: IGMediaChild[]
+}
+
+export async function getMediaById(id: string): Promise<IGMediaDetail | null> {
+  const token = await getToken()
+  if (!token) return null
+
+  try {
+    const fields =
+      'id,media_type,media_url,thumbnail_url,permalink,caption,timestamp,children{id,media_type,media_url,thumbnail_url}'
+    const res = await fetch(`${BASE_URL}/${id}?fields=${fields}&access_token=${token}`, { cache: 'no-store' })
+    if (!res.ok) return null
+    const data = await res.json()
+    if (!data || data.error) return null
+    return {
+      id: data.id,
+      media_type: data.media_type,
+      media_url: data.media_url,
+      thumbnail_url: data.thumbnail_url,
+      permalink: data.permalink,
+      caption: data.caption,
+      children: data.children?.data,
+    }
+  } catch {
+    return null
+  }
+}
+
 // Insights d'un post (vues, saves, likes, etc.)
 export async function getMediaInsights(mediaId: string, mediaType: string): Promise<IGMediaInsights> {
   const token = await getToken()

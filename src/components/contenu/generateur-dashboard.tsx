@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { InstagramEmbed } from './instagram-embed'
+import { PostMedia } from './post-media'
 import { ScriptPanel } from './script-panel'
 import { ExportMenu } from './export-menu'
 import {
@@ -186,10 +186,11 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks }
                   </a>
                 </div>
                 <div className="flex justify-center">
-                  <InstagramEmbed
+                  <PostMedia
+                    key={selectedPost.id}
+                    postId={selectedPost.id}
                     permalink={selectedPost.permalink}
                     thumbnailUrl={selectedPost.thumbnail_url || selectedPost.media_url}
-                    caption={selectedPost.caption}
                   />
                 </div>
                 <DetailMetrics post={selectedPost} />
