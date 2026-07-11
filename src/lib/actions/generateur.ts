@@ -31,8 +31,11 @@ export interface PostScriptLink {
   media_id: string
   script_id: string | null
   script_override: string | null
-  note_manuelle?: string | null
 }
+
+// Les notes manuelles vivent dans app_config (clé "note:<media_id>") → aucun
+// changement de schéma requis, et la note est indépendante du statut du post.
+const NOTE_PREFIX = 'note:'
 
 /** Catalogue complet des scripts (les 184). Lecture seule — la source n'est jamais modifiée. */
 export async function getScriptsCatalog(): Promise<ScriptCatalogItem[]> {
@@ -132,18 +135,32 @@ export async function markNotFound(mediaId: string) {
   return { success: true }
 }
 
-/** Sauvegarde la note manuelle (description du reel) sur la ligne du post. */
+/** Toutes les notes manuelles (indexées par media_id). */
+export async function getAllNotes(): Promise<Record<string, string>> {
+  const adminId = await requireAdmin()
+  if (!adminId) return {}
+
+  const admin = createAdminClient()
+  const { data } = await admin.from('app_config').select('key, value').like('key', `${NOTE_PREFIX}%`)
+
+  const out: Record<string, string> = {}
+  for (const row of (data as { key: string; value: string }[] | null) || []) {
+    out[row.key.slice(NOTE_PREFIX.length)] = row.value ?? ''
+  }
+  return out
+}
+
+/** Sauvegarde la note manuelle (description du reel) dans app_config. */
 export async function saveNote(mediaId: string, text: string) {
   const adminId = await requireAdmin()
   if (!adminId) return { error: 'Accès refusé' }
   if (!mediaId) return { error: 'media_id manquant' }
 
   const admin = createAdminClient()
-  // update-only : ne crée pas de ligne (éviter de flipper un post "à faire")
-  const { error } = await admin
-    .from('post_script_links')
-    .update({ note_manuelle: text })
-    .eq('media_id', mediaId)
+  const { error } = await admin.from('app_config').upsert(
+    { key: `${NOTE_PREFIX}${mediaId}`, value: text ?? '', updated_at: new Date().toISOString() },
+    { onConflict: 'key' }
+  )
 
   if (error) return { error: error.message }
   return { success: true }

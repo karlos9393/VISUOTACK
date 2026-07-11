@@ -20,6 +20,7 @@ const AUTOSAVE_DELAY = 800
 interface ScriptPanelProps {
   post: IGMedia
   link: PostScriptLink | undefined
+  note: string
   catalog: ScriptCatalogItem[] | null
   onLinked: (mediaId: string, scriptId: string) => void
   onUnlinked: (mediaId: string) => void
@@ -28,7 +29,7 @@ interface ScriptPanelProps {
   onNoteSaved: (mediaId: string, text: string) => void
 }
 
-export function ScriptPanel({ post, link, catalog, onLinked, onUnlinked, onMarkNotFound, onOverrideSaved, onNoteSaved }: ScriptPanelProps) {
+export function ScriptPanel({ post, link, note, catalog, onLinked, onUnlinked, onMarkNotFound, onOverrideSaved, onNoteSaved }: ScriptPanelProps) {
   const [selectorOpen, setSelectorOpen] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -138,7 +139,7 @@ export function ScriptPanel({ post, link, catalog, onLinked, onUnlinked, onMarkN
             </div>
           </div>
           <div className="border-t border-gray-100 pt-4">
-            <ManualNote key={post.id} mediaId={post.id} note={link?.note_manuelle ?? ''} onSaved={onNoteSaved} />
+            <ManualNote key={post.id} mediaId={post.id} note={note} onSaved={onNoteSaved} />
           </div>
         </div>
       ) : !linked ? (
@@ -190,7 +191,7 @@ export function ScriptPanel({ post, link, catalog, onLinked, onUnlinked, onMarkN
           </p>
 
           <div className="border-t border-gray-100 pt-4">
-            <ManualNote key={post.id} mediaId={post.id} note={link?.note_manuelle ?? ''} onSaved={onNoteSaved} />
+            <ManualNote key={post.id} mediaId={post.id} note={note} onSaved={onNoteSaved} />
           </div>
         </div>
       )}

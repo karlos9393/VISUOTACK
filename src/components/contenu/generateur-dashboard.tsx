@@ -43,13 +43,17 @@ interface GenerateurDashboardProps {
   initialMedia: IGMedia[]
   tokenExpired: boolean
   initialLinks: PostScriptLink[]
+  initialNotes: Record<string, string>
 }
 
-export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks }: GenerateurDashboardProps) {
+export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks, initialNotes }: GenerateurDashboardProps) {
   // Liens post <-> script (indexés par media_id)
   const [links, setLinks] = useState<Record<string, PostScriptLink>>(() =>
     Object.fromEntries(initialLinks.map((l) => [l.media_id, l]))
   )
+
+  // Notes manuelles (indexées par media_id) — stockées à part (app_config)
+  const [notes, setNotes] = useState<Record<string, string>>(initialNotes)
 
   // Filtre actif — "À faire" par défaut (on ne voit que le travail restant)
   const [filter, setFilter] = useState<ScriptStatut | 'all'>('a_associer')
@@ -115,11 +119,7 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks }
     })
   }
   function handleNoteSaved(mediaId: string, text: string) {
-    setLinks((prev) => {
-      const existing = prev[mediaId]
-      if (!existing) return prev
-      return { ...prev, [mediaId]: { ...existing, note_manuelle: text } }
-    })
+    setNotes((prev) => ({ ...prev, [mediaId]: text }))
   }
 
   return (
@@ -212,6 +212,7 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks }
               <ScriptPanel
                 post={selectedPost}
                 link={links[selectedPost.id]}
+                note={notes[selectedPost.id] ?? ''}
                 catalog={catalog}
                 onLinked={handleLinked}
                 onUnlinked={handleUnlinked}

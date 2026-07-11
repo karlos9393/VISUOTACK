@@ -10,7 +10,7 @@ export const maxDuration = 60
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000
 const INSIGHTS_CONCURRENCY = 6
 
-interface LinkRow { media_id: string; script_id: string | null; script_override: string | null; note_manuelle?: string | null }
+interface LinkRow { media_id: string; script_id: string | null; script_override: string | null }
 interface ScriptRow {
   id: string | number
   titre: string | null
@@ -66,16 +66,20 @@ export async function GET(request: NextRequest) {
   const sort = request.nextUrl.searchParams.get('sort') === 'views' ? 'views' : 'date'
   const admin = createAdminClient()
 
-  // Posts (pagination complète) + liaisons + catalogue + cache insights, en parallèle
-  const [posts, linksRes, scriptsRes, cacheRes] = await Promise.all([
+  // Posts (pagination complète) + liaisons + catalogue + cache insights + notes, en parallèle
+  const [posts, linksRes, scriptsRes, cacheRes, notesRes] = await Promise.all([
     getMediaList(),
     admin.from('post_script_links').select('*'),
     admin.from('generateur_scripts').select('id, titre, partie, semaine, contenu, source'),
     admin.from('post_insights_cache').select('post_id, plays, impressions, saved, reach, fetched_at'),
+    admin.from('app_config').select('key, value').like('key', 'note:%'),
   ])
 
   const linkByMedia = new Map<string, LinkRow>(
     ((linksRes.data as LinkRow[] | null) || []).map((l) => [String(l.media_id), l])
+  )
+  const noteByMedia = new Map<string, string>(
+    ((notesRes.data as { key: string; value: string }[] | null) || []).map((n) => [n.key.slice(5), n.value ?? ''])
   )
   const scriptById = new Map<string, ScriptRow>(
     ((scriptsRes.data as ScriptRow[] | null) || []).map((s) => [String(s.id), s])
@@ -153,7 +157,7 @@ export async function GET(request: NextRequest) {
       csvCell(ins.reach || 0),
       csvCell(eng),
       csvCell(statutOf(link)),
-      csvCell(link?.note_manuelle ?? ''),
+      csvCell(noteByMedia.get(post.id) ?? ''),
       csvCell(scriptText),
       csvCell(script?.titre ?? ''),
       csvCell(script?.partie ?? ''),
