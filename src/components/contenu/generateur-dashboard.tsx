@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { PostMedia } from './post-media'
 import { ScriptPanel } from './script-panel'
 import { ExportMenu } from './export-menu'
 import {
   getScriptsCatalog,
+  saveLeads,
   type ScriptCatalogItem,
   type PostScriptLink,
 } from '@/lib/actions/generateur'
@@ -39,14 +40,25 @@ function fr(n?: number): string {
   return typeof n === 'number' ? n.toLocaleString('fr-FR') : '-'
 }
 
+// Temps de visionnage moyen (ms → secondes lisibles). Meta renvoie des ms.
+function formatWatch(ms?: number): string {
+  if (!ms || ms <= 0) return '-'
+  const s = ms / 1000
+  if (s < 60) return `${s.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} s`
+  const min = Math.floor(s / 60)
+  const rest = Math.round(s % 60)
+  return `${min} min ${String(rest).padStart(2, '0')}`
+}
+
 interface GenerateurDashboardProps {
   initialMedia: IGMedia[]
   tokenExpired: boolean
   initialLinks: PostScriptLink[]
   initialNotes: Record<string, string>
+  initialLeads: Record<string, number>
 }
 
-export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks, initialNotes }: GenerateurDashboardProps) {
+export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks, initialNotes, initialLeads }: GenerateurDashboardProps) {
   // Liens post <-> script (indexés par media_id)
   const [links, setLinks] = useState<Record<string, PostScriptLink>>(() =>
     Object.fromEntries(initialLinks.map((l) => [l.media_id, l]))
@@ -54,6 +66,9 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks, 
 
   // Notes manuelles (indexées par media_id) — stockées à part (app_config)
   const [notes, setNotes] = useState<Record<string, string>>(initialNotes)
+
+  // Leads/DM manuels (indexés par media_id) — stockés à part (app_config)
+  const [leads, setLeads] = useState<Record<string, number>>(initialLeads)
 
   // Filtre actif — "À faire" par défaut (on ne voit que le travail restant)
   const [filter, setFilter] = useState<ScriptStatut | 'all'>('a_associer')
@@ -120,6 +135,9 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks, 
   }
   function handleNoteSaved(mediaId: string, text: string) {
     setNotes((prev) => ({ ...prev, [mediaId]: text }))
+  }
+  function handleLeadsSaved(mediaId: string, count: number) {
+    setLeads((prev) => ({ ...prev, [mediaId]: count }))
   }
 
   return (
@@ -207,6 +225,13 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks, 
                   />
                 </div>
                 <DetailMetrics post={selectedPost} />
+                <CaptionBlock key={selectedPost.id} caption={selectedPost.caption} />
+                <LeadsInput
+                  key={selectedPost.id}
+                  mediaId={selectedPost.id}
+                  value={leads[selectedPost.id] ?? 0}
+                  onSaved={handleLeadsSaved}
+                />
               </div>
 
               <ScriptPanel
@@ -308,28 +333,120 @@ function DetailMetrics({ post }: { post: IGMedia }) {
     }
   }, [post.id, post.media_type])
 
-  const items = [
+  const items: { label: string; value?: number; display?: string }[] = [
     { label: 'Vues', value: insights?.views },
+    { label: 'Reach', value: insights?.reach },
     { label: 'Likes', value: post.like_count },
     { label: 'Commentaires', value: post.comments_count },
     { label: 'Saves', value: insights?.saved },
-    { label: 'Reach', value: insights?.reach },
+    { label: 'Partages', value: insights?.shares },
+    { label: '⏱ Visionnage moy.', display: formatWatch(insights?.avg_watch_time) },
+    { label: 'Abonnés générés', value: insights?.follows },
+    { label: 'Visites profil', value: insights?.profile_visits },
   ]
 
   return (
-    <div className="mt-4 grid grid-cols-5 gap-2">
+    <div className="mt-4 grid grid-cols-3 gap-2">
       {items.map((it) => (
-        <div key={it.label} className="text-center rounded-lg bg-gray-50 py-2">
+        <div key={it.label} className="text-center rounded-lg bg-gray-50 py-2 px-1">
           <p className="text-sm font-bold text-gray-900 tabular-nums">
-            {loading && it.value == null ? (
+            {loading && it.value == null && it.display == null ? (
               <span className="inline-block w-8 h-4 bg-gray-200 rounded animate-pulse" />
             ) : (
-              fr(it.value)
+              it.display ?? fr(it.value)
             )}
           </p>
-          <p className="text-[10px] text-gray-500 mt-0.5">{it.label}</p>
+          <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{it.label}</p>
         </div>
       ))}
+    </div>
+  )
+}
+
+// Description Instagram (caption) récupérée via l'API — lecture seule, repliable.
+function CaptionBlock({ caption }: { caption?: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const text = caption?.trim()
+  if (!text) return null
+  const long = text.length > 220
+
+  return (
+    <div className="mt-4 rounded-lg border border-gray-100 bg-gray-50 p-3">
+      <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-1">
+        Description Instagram
+      </p>
+      <p className={`text-xs text-gray-700 whitespace-pre-wrap leading-relaxed ${expanded ? '' : 'line-clamp-4'}`}>
+        {text}
+      </p>
+      {long && (
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-1 text-[11px] font-medium text-blue-600 hover:text-blue-700"
+        >
+          {expanded ? 'Réduire' : 'Voir plus'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// Leads / DM générés par le reel — saisie manuelle, autosave debouncé (app_config).
+function LeadsInput({
+  mediaId,
+  value,
+  onSaved,
+}: {
+  mediaId: string
+  value: number
+  onSaved: (mediaId: string, count: number) => void
+}) {
+  const [raw, setRaw] = useState(value ? String(value) : '')
+  const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const skip = useRef(true)
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  useEffect(() => {
+    if (skip.current) { skip.current = false; return }
+    clearTimeout(timer.current)
+    const n = Number.parseInt(raw, 10)
+    const count = Number.isFinite(n) && n > 0 ? n : 0
+    setState('saving')
+    timer.current = setTimeout(async () => {
+      const result = await saveLeads(mediaId, count)
+      if (result.error) {
+        setState('error')
+      } else {
+        setState('saved')
+        onSaved(mediaId, count)
+      }
+    }, 700)
+    return () => clearTimeout(timer.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raw])
+
+  return (
+    <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5">
+      <div className="min-w-0">
+        <label htmlFor={`leads-${mediaId}`} className="block text-xs font-medium text-gray-700">
+          🎯 Leads / DM générés
+        </label>
+        <p className="text-[10px] text-gray-400">Saisie manuelle (ManyChat, appels…)</p>
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {state === 'saving' && <span className="text-[11px] text-gray-400">…</span>}
+        {state === 'saved' && <span className="text-[11px] text-green-600">✓</span>}
+        {state === 'error' && <span className="text-[11px] text-red-600">échec</span>}
+        <input
+          id={`leads-${mediaId}`}
+          type="number"
+          min={0}
+          inputMode="numeric"
+          value={raw}
+          onChange={(e) => setRaw(e.target.value)}
+          placeholder="0"
+          className="w-20 rounded-md border border-gray-300 px-2 py-1 text-sm text-right tabular-nums focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+      </div>
     </div>
   )
 }

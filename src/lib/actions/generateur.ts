@@ -37,6 +37,10 @@ export interface PostScriptLink {
 // changement de schéma requis, et la note est indépendante du statut du post.
 const NOTE_PREFIX = 'note:'
 
+// Les leads/DM saisis manuellement par reel vivent aussi dans app_config
+// (clé "leads:<media_id>"), stockés en texte numérique.
+const LEADS_PREFIX = 'leads:'
+
 /** Catalogue complet des scripts (les 184). Lecture seule — la source n'est jamais modifiée. */
 export async function getScriptsCatalog(): Promise<ScriptCatalogItem[]> {
   const adminId = await requireAdmin()
@@ -159,6 +163,40 @@ export async function saveNote(mediaId: string, text: string) {
   const admin = createAdminClient()
   const { error } = await admin.from('app_config').upsert(
     { key: `${NOTE_PREFIX}${mediaId}`, value: text ?? '', updated_at: new Date().toISOString() },
+    { onConflict: 'key' }
+  )
+
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+/** Tous les leads/DM manuels (indexés par media_id, valeur numérique). */
+export async function getAllLeads(): Promise<Record<string, number>> {
+  const adminId = await requireAdmin()
+  if (!adminId) return {}
+
+  const admin = createAdminClient()
+  const { data } = await admin.from('app_config').select('key, value').like('key', `${LEADS_PREFIX}%`)
+
+  const out: Record<string, number> = {}
+  for (const row of (data as { key: string; value: string }[] | null) || []) {
+    const n = Number.parseInt(row.value ?? '', 10)
+    out[row.key.slice(LEADS_PREFIX.length)] = Number.isFinite(n) ? n : 0
+  }
+  return out
+}
+
+/** Sauvegarde le nombre de leads/DM générés par un reel (saisie manuelle). */
+export async function saveLeads(mediaId: string, count: number) {
+  const adminId = await requireAdmin()
+  if (!adminId) return { error: 'Accès refusé' }
+  if (!mediaId) return { error: 'media_id manquant' }
+
+  const n = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0
+
+  const admin = createAdminClient()
+  const { error } = await admin.from('app_config').upsert(
+    { key: `${LEADS_PREFIX}${mediaId}`, value: String(n), updated_at: new Date().toISOString() },
     { onConflict: 'key' }
   )
 

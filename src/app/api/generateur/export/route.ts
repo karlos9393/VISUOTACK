@@ -25,9 +25,21 @@ interface CacheRow {
   impressions: number | null
   saved: number | null
   reach: number | null
+  shares: number | null
+  follows: number | null
+  profile_visits: number | null
+  avg_watch_time: number | null
   fetched_at: string
 }
-interface Insight { views: number; saved: number; reach: number }
+interface Insight {
+  views: number
+  saved: number
+  reach: number
+  shares: number
+  follows: number
+  profile_visits: number
+  avg_watch_time: number
+}
 
 /** Échappement CSV RFC 4180 : guillemets doublés, cellule quotée si , " ou saut de ligne. */
 function csvCell(v: unknown): string {
@@ -67,12 +79,15 @@ export async function GET(request: NextRequest) {
   const admin = createAdminClient()
 
   // Posts (pagination complète) + liaisons + catalogue + cache insights + notes, en parallèle
-  const [posts, linksRes, scriptsRes, cacheRes, notesRes] = await Promise.all([
+  const [posts, linksRes, scriptsRes, cacheRes, notesRes, leadsRes] = await Promise.all([
     getMediaList(),
     admin.from('post_script_links').select('*'),
     admin.from('generateur_scripts').select('id, titre, partie, semaine, contenu, source'),
-    admin.from('post_insights_cache').select('post_id, plays, impressions, saved, reach, fetched_at'),
+    admin
+      .from('post_insights_cache')
+      .select('post_id, plays, impressions, saved, reach, shares, follows, profile_visits, avg_watch_time, fetched_at'),
     admin.from('app_config').select('key, value').like('key', 'note:%'),
+    admin.from('app_config').select('key, value').like('key', 'leads:%'),
   ])
 
   const linkByMedia = new Map<string, LinkRow>(
@@ -80,6 +95,9 @@ export async function GET(request: NextRequest) {
   )
   const noteByMedia = new Map<string, string>(
     ((notesRes.data as { key: string; value: string }[] | null) || []).map((n) => [n.key.slice(5), n.value ?? ''])
+  )
+  const leadsByMedia = new Map<string, string>(
+    ((leadsRes.data as { key: string; value: string }[] | null) || []).map((n) => [n.key.slice(6), n.value ?? ''])
   )
   const scriptById = new Map<string, ScriptRow>(
     ((scriptsRes.data as ScriptRow[] | null) || []).map((s) => [String(s.id), s])
@@ -93,7 +111,15 @@ export async function GET(request: NextRequest) {
     const cached = cacheByPost.get(post.id)
     if (cached && Date.now() - new Date(cached.fetched_at).getTime() < CACHE_TTL_MS) {
       const views = cached.plays && cached.plays > 0 ? cached.plays : (cached.impressions || 0)
-      return { views, saved: cached.saved || 0, reach: cached.reach || 0 }
+      return {
+        views,
+        saved: cached.saved || 0,
+        reach: cached.reach || 0,
+        shares: cached.shares || 0,
+        follows: cached.follows || 0,
+        profile_visits: cached.profile_visits || 0,
+        avg_watch_time: cached.avg_watch_time || 0,
+      }
     }
     const ins = await getMediaInsights(post.id, post.media_type)
     const hasData = ins.plays !== undefined || ins.impressions !== undefined || ins.saved !== undefined
@@ -110,6 +136,9 @@ export async function GET(request: NextRequest) {
             plays: ins.plays || 0,
             shares: ins.shares || 0,
             follows: ins.follows || 0,
+            profile_visits: ins.profile_visits || 0,
+            avg_watch_time: ins.avg_watch_time || 0,
+            total_watch_time: ins.total_watch_time || 0,
             fetched_at: new Date().toISOString(),
           },
           { onConflict: 'post_id' }
@@ -118,7 +147,15 @@ export async function GET(request: NextRequest) {
         // best effort
       }
     }
-    return { views: ins.views || 0, saved: ins.saved || 0, reach: ins.reach || 0 }
+    return {
+      views: ins.views || 0,
+      saved: ins.saved || 0,
+      reach: ins.reach || 0,
+      shares: ins.shares || 0,
+      follows: ins.follows || 0,
+      profile_visits: ins.profile_visits || 0,
+      avg_watch_time: ins.avg_watch_time || 0,
+    }
   })
 
   const rows = posts.map((post, i) => ({ post, ins: insights[i] }))
@@ -130,7 +167,8 @@ export async function GET(request: NextRequest) {
 
   const header = [
     'date_publication', 'permalink', 'format', 'caption', 'vues', 'likes', 'commentaires',
-    'saves', 'reach', 'taux_engagement', 'statut', 'note_manuelle', 'script_associe',
+    'saves', 'partages', 'reach', 'taux_engagement', 'visionnage_moyen_s', 'abonnes_generes',
+    'visites_profil', 'leads_manuel', 'statut', 'note_manuelle', 'script_associe',
     'script_titre', 'script_partie', 'script_semaine', 'script_source',
   ]
 
@@ -144,6 +182,8 @@ export async function GET(request: NextRequest) {
     const saves = ins.saved || 0
     const views = ins.views || 0
     const eng = views > 0 ? (((likes + comments + saves) / views) * 100).toFixed(1) : ''
+    // Temps de visionnage moyen : ms → secondes (1 décimale) pour le tableur
+    const watchS = ins.avg_watch_time > 0 ? (ins.avg_watch_time / 1000).toFixed(1) : ''
 
     lines.push([
       csvCell(post.timestamp ? post.timestamp.split('T')[0] : ''),
@@ -154,8 +194,13 @@ export async function GET(request: NextRequest) {
       csvCell(likes),
       csvCell(comments),
       csvCell(saves),
+      csvCell(ins.shares || 0),
       csvCell(ins.reach || 0),
       csvCell(eng),
+      csvCell(watchS),
+      csvCell(ins.follows || 0),
+      csvCell(ins.profile_visits || 0),
+      csvCell(leadsByMedia.get(post.id) ?? ''),
       csvCell(statutOf(link)),
       csvCell(noteByMedia.get(post.id) ?? ''),
       csvCell(scriptText),

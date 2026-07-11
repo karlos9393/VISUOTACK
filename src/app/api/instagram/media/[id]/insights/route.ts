@@ -50,6 +50,9 @@ export async function GET(
         shares: cached.shares,
         views,
         follows: cached.follows || 0,
+        profile_visits: cached.profile_visits || 0,
+        avg_watch_time: cached.avg_watch_time || 0,
+        total_watch_time: cached.total_watch_time || 0,
         _cached: true,
       })
     }
@@ -72,6 +75,9 @@ export async function GET(
       plays: insights.plays || 0,
       shares: insights.shares || 0,
       follows: insights.follows || 0,
+      profile_visits: insights.profile_visits || 0,
+      avg_watch_time: insights.avg_watch_time || 0,
+      total_watch_time: insights.total_watch_time || 0,
       fetched_at: new Date().toISOString(),
     }, { onConflict: 'post_id' })
   }

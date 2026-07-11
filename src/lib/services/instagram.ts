@@ -87,6 +87,9 @@ export interface IGMediaInsights {
   follows?: number
   likes?: number
   comments?: number
+  avg_watch_time?: number   // temps de visionnage moyen (ms) — reels/vidéos
+  total_watch_time?: number // temps de visionnage total (ms) — reels/vidéos
+  profile_visits?: number   // visites de profil depuis ce post (fragile)
 }
 
 export interface IGAccountInsightsDay {
@@ -181,63 +184,89 @@ export async function getMediaById(id: string): Promise<IGMediaDetail | null> {
   }
 }
 
-// Insights d'un post (vues, saves, likes, etc.)
+/**
+ * Récupère un groupe de métriques d'insights. Best-effort : si Meta refuse UNE
+ * métrique du groupe, toute la requête échoue → on renvoie {} sans propager
+ * l'erreur. C'est pourquoi getMediaInsights isole les métriques fragiles dans
+ * leur propre groupe : une métrique indisponible ne peut pas faire tomber les autres.
+ */
+async function fetchInsightGroup(
+  mediaId: string,
+  metrics: string,
+  token: string
+): Promise<Record<string, number>> {
+  try {
+    const url = `${BASE_URL}/${mediaId}/insights?metric=${metrics}&access_token=${token}`
+    const res = await fetch(url, { cache: 'no-store' })
+    if (!res.ok) return {}
+    const data = await res.json()
+    if (data.error) return {}
+
+    const out: Record<string, number> = {}
+    for (const item of data.data || []) {
+      out[item.name] = item.values?.[0]?.value ?? item.value ?? 0
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+// Insights d'un post (vues, saves, likes, temps de visionnage, follows, etc.)
+// Requêtes séparées et résilientes : le "core" (métriques prouvées) est protégé
+// des métriques plus fragiles (watch time, follows/profile_visits).
 export async function getMediaInsights(mediaId: string, mediaType: string): Promise<IGMediaInsights> {
   const token = await getToken()
   if (!token) return {}
 
-  try {
-    // Métriques selon le type de media (v22.0)
-    let metrics: string
-    if (mediaType === 'VIDEO' || mediaType === 'REEL') {
-      metrics = 'views,saved,likes,comments,shares,reach'
-    } else {
-      metrics = 'impressions,saved,likes,comments,shares,reach'
+  const isVideo = mediaType === 'VIDEO' || mediaType === 'REEL'
+  const coreMetrics = isVideo
+    ? 'views,saved,likes,comments,shares,reach'
+    : 'impressions,saved,likes,comments,shares,reach'
+
+  // Groupes lancés en parallèle. Chacun tombe indépendamment sur {} en cas d'échec.
+  const [core, watch, activity] = await Promise.all([
+    fetchInsightGroup(mediaId, coreMetrics, token),
+    // Temps de visionnage : reels/vidéos uniquement, isolé pour protéger le core.
+    isVideo
+      ? fetchInsightGroup(mediaId, 'ig_reels_avg_watch_time,ig_reels_video_view_total_time', token)
+      : Promise.resolve<Record<string, number>>({}),
+    // Acquisition : follows + profile_visits, les plus fragiles, isolés à part.
+    fetchInsightGroup(mediaId, 'follows,profile_visits', token),
+  ])
+
+  const merged = { ...core, ...watch, ...activity }
+
+  // Normaliser les données retournées
+  const insights: IGMediaInsights = {}
+  for (const [name, value] of Object.entries(merged)) {
+    switch (name) {
+      case 'impressions': insights.impressions = value; break
+      case 'reach': insights.reach = value; break
+      case 'saved': insights.saved = value; break
+      case 'video_views': insights.video_views = value; break
+      case 'plays': insights.plays = value; break
+      case 'views': insights.views = value; break
+      case 'shares': insights.shares = value; break
+      case 'likes': insights.likes = value; break
+      case 'comments': insights.comments = value; break
+      case 'follows': insights.follows = value; break
+      case 'profile_visits': insights.profile_visits = value; break
+      case 'ig_reels_avg_watch_time': insights.avg_watch_time = value; break
+      case 'ig_reels_video_view_total_time': insights.total_watch_time = value; break
     }
-
-    const url = `${BASE_URL}/${mediaId}/insights?metric=${metrics}&access_token=${token}`
-    const res = await fetch(url, { cache: 'no-store' })
-
-    if (!res.ok) {
-      return {}
-    }
-
-    const data = await res.json()
-
-    if (data.error) {
-      return {}
-    }
-
-    // Normaliser les données retournées
-    const insights: IGMediaInsights = {}
-    for (const item of data.data || []) {
-      const value = item.values?.[0]?.value ?? item.value ?? 0
-      switch (item.name) {
-        case 'impressions': insights.impressions = value; break
-        case 'reach': insights.reach = value; break
-        case 'saved': insights.saved = value; break
-        case 'video_views': insights.video_views = value; break
-        case 'plays': insights.plays = value; break
-        case 'views': insights.views = value; break
-        case 'shares': insights.shares = value; break
-        case 'likes': insights.likes = value; break
-        case 'comments': insights.comments = value; break
-      }
-    }
-
-    // Alias : si views n'est pas déjà set, fallback sur plays puis impressions
-    if (insights.views === undefined) {
-      if (insights.plays !== undefined) {
-        insights.views = insights.plays
-      } else if (insights.impressions !== undefined) {
-        insights.views = insights.impressions
-      }
-    }
-
-    return insights
-  } catch {
-    return {}
   }
+
+  // Alias : si views n'est pas déjà set, fallback sur plays puis impressions
+  if (insights.views === undefined) {
+    if (insights.plays !== undefined) {
+      insights.views = insights.plays
+    } else if (insights.impressions !== undefined) {
+      insights.views = insights.impressions
+    }
+  }
+
+  return insights
 }
 
 // Insights du compte sur une période (données par jour)
