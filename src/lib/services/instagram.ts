@@ -84,12 +84,10 @@ export interface IGMediaInsights {
   plays?: number
   shares?: number
   views?: number
-  follows?: number
   likes?: number
   comments?: number
   avg_watch_time?: number   // temps de visionnage moyen (ms) — reels/vidéos
   total_watch_time?: number // temps de visionnage total (ms) — reels/vidéos
-  profile_visits?: number   // visites de profil depuis ce post (fragile)
 }
 
 export interface IGAccountInsightsDay {
@@ -212,9 +210,9 @@ async function fetchInsightGroup(
   }
 }
 
-// Insights d'un post (vues, saves, likes, temps de visionnage, follows, etc.)
+// Insights d'un post (vues, saves, likes, partages, temps de visionnage).
 // Requêtes séparées et résilientes : le "core" (métriques prouvées) est protégé
-// des métriques plus fragiles (watch time, follows/profile_visits).
+// du watch time (isolé pour qu'une métrique refusée ne casse pas les autres).
 export async function getMediaInsights(mediaId: string, mediaType: string): Promise<IGMediaInsights> {
   const token = await getToken()
   if (!token) return {}
@@ -225,17 +223,17 @@ export async function getMediaInsights(mediaId: string, mediaType: string): Prom
     : 'impressions,saved,likes,comments,shares,reach'
 
   // Groupes lancés en parallèle. Chacun tombe indépendamment sur {} en cas d'échec.
-  const [core, watch, activity] = await Promise.all([
+  // NB : follows (niveau compte uniquement) et profile_visits (déprécié en v21,
+  // janv. 2025) ne sont PAS récupérables par média → on ne les demande pas.
+  const [core, watch] = await Promise.all([
     fetchInsightGroup(mediaId, coreMetrics, token),
     // Temps de visionnage : reels/vidéos uniquement, isolé pour protéger le core.
     isVideo
       ? fetchInsightGroup(mediaId, 'ig_reels_avg_watch_time,ig_reels_video_view_total_time', token)
       : Promise.resolve<Record<string, number>>({}),
-    // Acquisition : follows + profile_visits, les plus fragiles, isolés à part.
-    fetchInsightGroup(mediaId, 'follows,profile_visits', token),
   ])
 
-  const merged = { ...core, ...watch, ...activity }
+  const merged = { ...core, ...watch }
 
   // Normaliser les données retournées
   const insights: IGMediaInsights = {}
@@ -250,8 +248,6 @@ export async function getMediaInsights(mediaId: string, mediaType: string): Prom
       case 'shares': insights.shares = value; break
       case 'likes': insights.likes = value; break
       case 'comments': insights.comments = value; break
-      case 'follows': insights.follows = value; break
-      case 'profile_visits': insights.profile_visits = value; break
       case 'ig_reels_avg_watch_time': insights.avg_watch_time = value; break
       case 'ig_reels_video_view_total_time': insights.total_watch_time = value; break
     }

@@ -341,8 +341,6 @@ function DetailMetrics({ post }: { post: IGMedia }) {
     { label: 'Saves', value: insights?.saved },
     { label: 'Partages', value: insights?.shares },
     { label: '⏱ Visionnage moy.', display: formatWatch(insights?.avg_watch_time) },
-    { label: 'Abonnés générés', value: insights?.follows },
-    { label: 'Visites profil', value: insights?.profile_visits },
   ]
 
   return (

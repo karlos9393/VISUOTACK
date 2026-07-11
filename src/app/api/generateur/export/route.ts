@@ -26,8 +26,6 @@ interface CacheRow {
   saved: number | null
   reach: number | null
   shares: number | null
-  follows: number | null
-  profile_visits: number | null
   avg_watch_time: number | null
   fetched_at: string
 }
@@ -36,8 +34,6 @@ interface Insight {
   saved: number
   reach: number
   shares: number
-  follows: number
-  profile_visits: number
   avg_watch_time: number
 }
 
@@ -85,7 +81,7 @@ export async function GET(request: NextRequest) {
     admin.from('generateur_scripts').select('id, titre, partie, semaine, contenu, source'),
     admin
       .from('post_insights_cache')
-      .select('post_id, plays, impressions, saved, reach, shares, follows, profile_visits, avg_watch_time, fetched_at'),
+      .select('post_id, plays, impressions, saved, reach, shares, avg_watch_time, fetched_at'),
     admin.from('app_config').select('key, value').like('key', 'note:%'),
     admin.from('app_config').select('key, value').like('key', 'leads:%'),
   ])
@@ -116,8 +112,6 @@ export async function GET(request: NextRequest) {
         saved: cached.saved || 0,
         reach: cached.reach || 0,
         shares: cached.shares || 0,
-        follows: cached.follows || 0,
-        profile_visits: cached.profile_visits || 0,
         avg_watch_time: cached.avg_watch_time || 0,
       }
     }
@@ -135,8 +129,6 @@ export async function GET(request: NextRequest) {
             video_views: ins.video_views || 0,
             plays: ins.plays || 0,
             shares: ins.shares || 0,
-            follows: ins.follows || 0,
-            profile_visits: ins.profile_visits || 0,
             avg_watch_time: ins.avg_watch_time || 0,
             total_watch_time: ins.total_watch_time || 0,
             fetched_at: new Date().toISOString(),
@@ -152,8 +144,6 @@ export async function GET(request: NextRequest) {
       saved: ins.saved || 0,
       reach: ins.reach || 0,
       shares: ins.shares || 0,
-      follows: ins.follows || 0,
-      profile_visits: ins.profile_visits || 0,
       avg_watch_time: ins.avg_watch_time || 0,
     }
   })
@@ -167,8 +157,8 @@ export async function GET(request: NextRequest) {
 
   const header = [
     'date_publication', 'permalink', 'format', 'caption', 'vues', 'likes', 'commentaires',
-    'saves', 'partages', 'reach', 'taux_engagement', 'visionnage_moyen_s', 'abonnes_generes',
-    'visites_profil', 'leads_manuel', 'statut', 'note_manuelle', 'script_associe',
+    'saves', 'partages', 'reach', 'taux_engagement', 'visionnage_moyen_s', 'leads_manuel',
+    'statut', 'note_manuelle', 'script_associe',
     'script_titre', 'script_partie', 'script_semaine', 'script_source',
   ]
 
@@ -198,8 +188,6 @@ export async function GET(request: NextRequest) {
       csvCell(ins.reach || 0),
       csvCell(eng),
       csvCell(watchS),
-      csvCell(ins.follows || 0),
-      csvCell(ins.profile_visits || 0),
       csvCell(leadsByMedia.get(post.id) ?? ''),
       csvCell(statutOf(link)),
       csvCell(noteByMedia.get(post.id) ?? ''),
