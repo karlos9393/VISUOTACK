@@ -152,7 +152,10 @@ export async function getCrmEntriesForMonth(year: number, month: number) {
   const endYear = month === 12 ? year + 1 : year
   const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
 
-  const { data } = await supabase
+  // Lecture partagée : via le client admin pour que tout utilisateur connecté
+  // voie les mêmes données (indépendant de la RLS / du rôle).
+  const adminClient = createAdminClient()
+  const { data } = await adminClient
     .from('crm_daily_entries')
     .select('*, updater:updated_by(full_name, email)')
     .gte('date', startDate)
@@ -167,7 +170,9 @@ export async function getCrmEntriesForDateRange(startDate: string, endDate: stri
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
-  const { data } = await supabase
+  // Lecture partagée : via le client admin (voir getCrmEntriesForMonth).
+  const adminClient = createAdminClient()
+  const { data } = await adminClient
     .from('crm_daily_entries')
     .select('*, updater:updated_by(full_name, email)')
     .gte('date', startDate)
@@ -182,11 +187,13 @@ export async function getCrmEntryForDate(date: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data } = await supabase
+  // Lecture partagée : via le client admin (voir getCrmEntriesForMonth).
+  const adminClient = createAdminClient()
+  const { data } = await adminClient
     .from('crm_daily_entries')
     .select('*')
     .eq('date', date)
-    .single()
+    .maybeSingle()
 
   return data
 }
