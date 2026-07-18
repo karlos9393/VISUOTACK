@@ -27,7 +27,9 @@ export default async function CrmTrackerRoute() {
   const weekStart = startOfWeek(now, { weekStartsOn: 1 })
   const weekEnd = endOfWeek(now, { weekStartsOn: 1 })
 
-  const { data: entries } = await supabase
+  // Lecture partagée : via le client admin pour que tout utilisateur connecté
+  // voie les mêmes données (indépendant de la RLS / du rôle).
+  const { data: entries } = await adminClient
     .from('crm_daily_entries')
     .select('*, updater:updated_by(full_name, email)')
     .gte('date', format(weekStart, 'yyyy-MM-dd'))
