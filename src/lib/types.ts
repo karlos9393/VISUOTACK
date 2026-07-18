@@ -31,12 +31,16 @@ export interface CrmDailyEntry {
   id: string
   setter_id: string
   date: string
-  messages_envoyes: number
-  reponses: number
+  conversations_entrantes: number
+  outbound_envoyes: number
+  reponses_outbound: number
   fup_envoyes: number
   reponses_fup: number
+  liens_rdv_envoyes: number
   rdv_bookes: number
-  links_envoyes: number
+  rdv_qualifies: number
+  setter_present: boolean
+  notes: string | null
   created_at: string
   updated_at: string
   updated_by: string | null

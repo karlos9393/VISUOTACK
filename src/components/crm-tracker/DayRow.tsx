@@ -5,18 +5,36 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import { UserInitials } from './UserInitials'
+import { KPI_DEFS, computeKpiValue, getKpiColor, formatKpi } from '@/lib/crm-kpi'
 
 export interface DayData {
   date: string
-  messages_envoyes: number
-  reponses: number
+  conversations_entrantes: number
+  outbound_envoyes: number
+  reponses_outbound: number
   fup_envoyes: number
   reponses_fup: number
+  liens_rdv_envoyes: number
   rdv_bookes: number
-  links_envoyes: number
+  rdv_qualifies: number
+  setter_present: boolean
+  notes: string | null
+  filled: boolean
   updater?: { full_name: string | null; email: string } | null
   updated_at?: string
 }
+
+// Colonnes entières éditables, dans l'ordre d'affichage.
+export const EDITABLE_COLS: (keyof DayData)[] = [
+  'conversations_entrantes',
+  'outbound_envoyes',
+  'reponses_outbound',
+  'fup_envoyes',
+  'reponses_fup',
+  'liens_rdv_envoyes',
+  'rdv_bookes',
+  'rdv_qualifies',
+]
 
 interface DayRowProps {
   day: DayData
@@ -26,28 +44,7 @@ interface DayRowProps {
   onCellChange: (date: string, field: string, value: number) => void
 }
 
-function calcMetrics(row: DayData) {
-  return {
-    pct_reponse: row.messages_envoyes > 0
-      ? (row.reponses / row.messages_envoyes * 100).toFixed(1) + '%'
-      : '\u2014',
-    pct_reponse_fup: row.fup_envoyes > 0
-      ? (row.reponses_fup / row.fup_envoyes * 100).toFixed(1) + '%'
-      : '\u2014',
-    pct_rdv_message: row.messages_envoyes > 0
-      ? (row.rdv_bookes / row.messages_envoyes * 100).toFixed(1) + '%'
-      : '\u2014',
-    pct_rdv_reponse: (row.reponses + row.reponses_fup) > 0
-      ? (row.rdv_bookes / (row.reponses + row.reponses_fup) * 100).toFixed(1) + '%'
-      : '\u2014',
-    pct_links_call: row.links_envoyes > 0
-      ? (row.rdv_bookes / row.links_envoyes * 100).toFixed(1) + '%'
-      : '\u2014',
-  }
-}
-
 export function DayRow({ day, weekLabel, readOnly = false, showParColumn = false, onCellChange }: DayRowProps) {
-  const metrics = calcMetrics(day)
   const dateObj = new Date(day.date + 'T00:00:00')
   const dayName = format(dateObj, 'EEE', { locale: fr })
   const dateDisplay = format(dateObj, 'dd/MM', { locale: fr })
@@ -60,13 +57,40 @@ export function DayRow({ day, weekLabel, readOnly = false, showParColumn = false
       <td className="px-3 py-2 text-sm text-gray-700 whitespace-nowrap">
         <span className="capitalize">{dayName}</span>{' '}
         <span className="text-gray-400">{dateDisplay}</span>
+        {day.notes && (
+          <span
+            className="ml-1.5 cursor-help align-middle text-gray-400"
+            title={day.notes}
+            aria-label={`Notes : ${day.notes}`}
+          >
+            🗒️
+          </span>
+        )}
       </td>
-      <EditableCell field="messages_envoyes" value={day.messages_envoyes} date={day.date} readOnly={readOnly} onChange={onCellChange} />
-      <EditableCell field="reponses" value={day.reponses} date={day.date} readOnly={readOnly} onChange={onCellChange} />
-      <EditableCell field="fup_envoyes" value={day.fup_envoyes} date={day.date} readOnly={readOnly} onChange={onCellChange} />
-      <EditableCell field="reponses_fup" value={day.reponses_fup} date={day.date} readOnly={readOnly} onChange={onCellChange} />
-      <EditableCell field="rdv_bookes" value={day.rdv_bookes} date={day.date} readOnly={readOnly} onChange={onCellChange} />
-      <EditableCell field="links_envoyes" value={day.links_envoyes} date={day.date} readOnly={readOnly} onChange={onCellChange} />
+
+      {EDITABLE_COLS.map((field) => (
+        <EditableCell
+          key={field}
+          field={field}
+          value={day[field] as number}
+          date={day.date}
+          readOnly={readOnly}
+          onChange={onCellChange}
+        />
+      ))}
+
+      {/* PRÉSENT */}
+      <td className="px-2 py-2 text-center text-sm">
+        {!day.filled ? (
+          <span className="text-gray-300">&mdash;</span>
+        ) : day.setter_present ? (
+          <span className="text-green-600 font-bold" title="Présent">✓</span>
+        ) : (
+          <span className="text-red-500 font-bold" title="Absent">✗</span>
+        )}
+      </td>
+
+      {/* PAR */}
       {showParColumn && (
         day.updater ? (
           <UserInitials
@@ -78,12 +102,13 @@ export function DayRow({ day, weekLabel, readOnly = false, showParColumn = false
           <td className="px-2 py-2 text-center text-gray-300 text-xs">&mdash;</td>
         )
       )}
+
       <td className="w-2" />
-      <MetricCell value={metrics.pct_reponse} />
-      <MetricCell value={metrics.pct_reponse_fup} />
-      <MetricCell value={metrics.pct_rdv_message} />
-      <MetricCell value={metrics.pct_rdv_reponse} />
-      <MetricCell value={metrics.pct_links_call} />
+
+      {KPI_DEFS.map((def) => {
+        const value = computeKpiValue(def.key, day)
+        return <MetricCell key={def.key} value={formatKpi(value)} color={getKpiColor(def.key, value)} />
+      })}
     </tr>
   )
 }
@@ -147,7 +172,7 @@ function EditableCell({
           onChange={(e) => setLocalValue(e.target.value)}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
-          className="w-16 px-2 py-1 text-sm text-center border border-blue-400 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-16 px-2 py-1 text-sm text-center border border-primary rounded focus:outline-none focus:ring-1 focus:ring-primary"
           autoFocus
         />
       </td>
@@ -160,12 +185,12 @@ function EditableCell({
         'px-3 py-2 text-sm text-center',
         readOnly
           ? 'text-gray-700'
-          : 'text-gray-900 cursor-pointer hover:bg-blue-50 rounded transition-colors'
+          : 'text-gray-900 cursor-pointer hover:bg-primary-soft rounded transition-colors'
       )}
       onClick={handleClick}
     >
       {saving ? (
-        <span className="text-blue-500 text-xs">...</span>
+        <span className="text-primary text-xs">...</span>
       ) : (
         value === 0 ? '' : value
       )}
@@ -173,14 +198,14 @@ function EditableCell({
   )
 }
 
-function MetricCell({ value }: { value: string }) {
-  const isDash = value === '\u2014'
+function MetricCell({ value, color }: { value: string; color: string }) {
+  const isDash = value === '—'
   return (
-    <td className={cn(
-      'px-3 py-2 text-sm text-center',
-      isDash ? 'text-gray-300' : 'text-blue-700 bg-blue-50/50'
-    )}>
-      {value}
+    <td
+      className="px-3 py-2 text-sm text-center font-medium"
+      style={!isDash && color ? { backgroundColor: color, color: '#000' } : undefined}
+    >
+      <span className={isDash ? 'text-gray-300' : ''}>{value}</span>
     </td>
   )
 }

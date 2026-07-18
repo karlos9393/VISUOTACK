@@ -18,6 +18,7 @@ import {
 } from '@/lib/actions/crm-tracker'
 import { useToast } from '@/components/ui/toast'
 import { CrmLegend } from './CrmLegend'
+import { KPI_DEFS } from '@/lib/crm-kpi'
 
 interface CrmTrackerPageProps {
   currentUserId: string
@@ -27,6 +28,26 @@ interface CrmTrackerPageProps {
 interface WeekData {
   weekNumber: number
   days: DayData[]
+}
+
+// Construit une ligne de tableau à partir (ou non) d'une entrée existante.
+function entryToDay(dateStr: string, entry: CrmDailyEntry | undefined): DayData {
+  return {
+    date: dateStr,
+    conversations_entrantes: entry?.conversations_entrantes ?? 0,
+    outbound_envoyes: entry?.outbound_envoyes ?? 0,
+    reponses_outbound: entry?.reponses_outbound ?? 0,
+    fup_envoyes: entry?.fup_envoyes ?? 0,
+    reponses_fup: entry?.reponses_fup ?? 0,
+    liens_rdv_envoyes: entry?.liens_rdv_envoyes ?? 0,
+    rdv_bookes: entry?.rdv_bookes ?? 0,
+    rdv_qualifies: entry?.rdv_qualifies ?? 0,
+    setter_present: entry?.setter_present ?? true,
+    notes: entry?.notes ?? null,
+    filled: !!entry,
+    updater: entry?.updater ?? null,
+    updated_at: entry?.updated_at ?? '',
+  }
 }
 
 function buildWeeksForMonth(
@@ -59,18 +80,7 @@ function buildWeeksForMonth(
   for (const [, weekDays] of sortedWeeks) {
     const days: DayData[] = weekDays.map((d) => {
       const dateStr = format(d, 'yyyy-MM-dd')
-      const entry = entryMap.get(dateStr)
-      return {
-        date: dateStr,
-        messages_envoyes: entry?.messages_envoyes ?? 0,
-        reponses: entry?.reponses ?? 0,
-        fup_envoyes: entry?.fup_envoyes ?? 0,
-        reponses_fup: entry?.reponses_fup ?? 0,
-        rdv_bookes: entry?.rdv_bookes ?? 0,
-        links_envoyes: entry?.links_envoyes ?? 0,
-        updater: entry?.updater ?? null,
-        updated_at: entry?.updated_at ?? '',
-      }
+      return entryToDay(dateStr, entryMap.get(dateStr))
     })
     weeks.push({ weekNumber: weekIdx, days })
     weekIdx++
@@ -89,18 +99,7 @@ function buildWeekDays(refDate: Date, entries: CrmDailyEntry[]): DayData[] {
 
   return days.map((d) => {
     const dateStr = format(d, 'yyyy-MM-dd')
-    const entry = entryMap.get(dateStr)
-    return {
-      date: dateStr,
-      messages_envoyes: entry?.messages_envoyes ?? 0,
-      reponses: entry?.reponses ?? 0,
-      fup_envoyes: entry?.fup_envoyes ?? 0,
-      reponses_fup: entry?.reponses_fup ?? 0,
-      rdv_bookes: entry?.rdv_bookes ?? 0,
-      links_envoyes: entry?.links_envoyes ?? 0,
-      updater: entry?.updater ?? null,
-      updated_at: entry?.updated_at ?? '',
-    }
+    return entryToDay(dateStr, entryMap.get(dateStr))
   })
 }
 
@@ -187,12 +186,16 @@ export function CrmTrackerPage({
             id: '',
             setter_id: currentUserId,
             date,
-            messages_envoyes: 0,
-            reponses: 0,
+            conversations_entrantes: 0,
+            outbound_envoyes: 0,
+            reponses_outbound: 0,
             fup_envoyes: 0,
             reponses_fup: 0,
+            liens_rdv_envoyes: 0,
             rdv_bookes: 0,
-            links_envoyes: 0,
+            rdv_qualifies: 0,
+            setter_present: true,
+            notes: null,
             created_at: '',
             updated_at: '',
             updated_by: null,
@@ -225,7 +228,7 @@ export function CrmTrackerPage({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">KINDASAMA</h1>
+          <h1 className="text-2xl font-bold text-gray-900">SUIVI SETTING</h1>
           <p className="text-gray-500 mt-1">
             Suivi d&apos;activit&eacute; partag&eacute;
           </p>
@@ -245,28 +248,31 @@ export function CrmTrackerPage({
       {/* Tableau */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
         {isPending && (
-          <div role="status" aria-live="polite" className="px-4 py-2 bg-blue-50 text-blue-600 text-xs font-medium">
+          <div role="status" aria-live="polite" className="px-4 py-2 bg-primary-soft text-primary text-xs font-medium">
             Chargement...
           </div>
         )}
-        <table className="w-full min-w-[1000px]">
+        <table className="w-full min-w-[1200px]">
           <thead>
             <tr className="bg-gray-800 text-white text-xs uppercase tracking-wider">
               <th className="px-3 py-3 text-left font-medium w-24">Semaine</th>
               <th className="px-3 py-3 text-left font-medium">Date</th>
-              <th className="px-3 py-3 text-center font-medium">Msg envoy&eacute;s</th>
-              <th className="px-3 py-3 text-center font-medium">R&eacute;ponses</th>
-              <th className="px-3 py-3 text-center font-medium">FUP envoy&eacute;s</th>
+              <th className="px-3 py-3 text-center font-medium">Conv. entrantes</th>
+              <th className="px-3 py-3 text-center font-medium">Outbound</th>
+              <th className="px-3 py-3 text-center font-medium">R&eacute;p. outbound</th>
+              <th className="px-3 py-3 text-center font-medium">FUP</th>
               <th className="px-3 py-3 text-center font-medium">R&eacute;p. FUP</th>
+              <th className="px-3 py-3 text-center font-medium">Liens RDV</th>
               <th className="px-3 py-3 text-center font-medium">RDV book&eacute;s</th>
-              <th className="px-3 py-3 text-center font-medium">Links envoy&eacute;s</th>
+              <th className="px-3 py-3 text-center font-medium">RDV qualifi&eacute;s</th>
+              <th className="px-2 py-3 text-center font-medium">Pr&eacute;sent</th>
               <th className="px-2 py-3 text-center font-medium">Par</th>
               <th className="w-2 bg-gray-700" />
-              <th className="px-3 py-3 text-center font-medium bg-gray-700">% R&eacute;p.</th>
-              <th className="px-3 py-3 text-center font-medium bg-gray-700">% R&eacute;p. FUP</th>
-              <th className="px-3 py-3 text-center font-medium bg-gray-700">% RDV/Msg</th>
-              <th className="px-3 py-3 text-center font-medium bg-gray-700">% RDV/R&eacute;p</th>
-              <th className="px-3 py-3 text-center font-medium bg-gray-700">% Links &rarr; Call</th>
+              {KPI_DEFS.map((def) => (
+                <th key={def.key} className="px-3 py-3 text-center font-medium bg-gray-700 whitespace-nowrap">
+                  {def.label}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
