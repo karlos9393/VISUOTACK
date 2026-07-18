@@ -56,9 +56,7 @@ export const KPI_DEFS: KpiDef[] = [
     key: 'pct_rdv_conv',
     label: '% RDV/CONV',
     subtitle: 'Conversion conversation entrante → RDV (vue macro)',
-    quote: '«Chaque conversation entrante est une opportunité — combien finissent en RDV ?»',
-    provisional: true,
-    numerator: (r) => r.rdv_bookes,
+    quote: '«Chaque conversation entrante est une opportunité — combien finissent en RDV ?»',    numerator: (r) => r.rdv_bookes,
     denominator: (r) => r.conversations_entrantes,
     bands: [
       { color: KPI_COLORS.green, threshold: '> 30%', min: 30, meaning: 'Excellent — une grande part des conversations deviennent des RDV' },
@@ -139,9 +137,7 @@ export const KPI_DEFS: KpiDef[] = [
     key: 'pct_qualif',
     label: '% QUALIF',
     subtitle: 'Qualité / maturité des RDV pris',
-    quote: '«Un RDV qualifié, c\'est un prospect réellement dans la cible et prêt à avancer.»',
-    provisional: true,
-    numerator: (r) => r.rdv_qualifies,
+    quote: '«Un RDV qualifié, c\'est un prospect réellement dans la cible et prêt à avancer.»',    numerator: (r) => r.rdv_qualifies,
     denominator: (r) => r.rdv_bookes,
     bands: [
       { color: KPI_COLORS.green, threshold: '> 60%', min: 60, meaning: 'Excellente qualification en amont' },
