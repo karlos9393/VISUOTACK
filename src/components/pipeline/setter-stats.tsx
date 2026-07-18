@@ -26,7 +26,7 @@ export function SetterStats({ stats }: SetterStatsProps) {
         <p className="text-sm font-semibold text-gray-900 mb-3">Ta semaine</p>
         <div className="grid grid-cols-4 gap-2 text-center">
           <div>
-            <p className="text-lg font-bold text-violet-600">{thisWeek.conversations}</p>
+            <p className="text-lg font-bold text-primary">{thisWeek.conversations}</p>
             <p className="text-[11px] text-gray-500">conv.</p>
           </div>
           <div>
@@ -34,7 +34,7 @@ export function SetterStats({ stats }: SetterStatsProps) {
             <p className="text-[11px] text-gray-500">qualifiés</p>
           </div>
           <div>
-            <p className="text-lg font-bold text-teal-600">{thisWeek.links_sent}</p>
+            <p className="text-lg font-bold text-primary">{thisWeek.links_sent}</p>
             <p className="text-[11px] text-gray-500">liens</p>
           </div>
           <div>

@@ -13,7 +13,7 @@ interface SidebarProps {
 
 const navigation = [
   { name: 'CRM Setting', href: '/crm-tracker/setting', roles: ['admin', 'manager', 'setter'] as Role[], icon: CrmSettingIcon },
-  { name: 'KINDASAMA', href: '/crm-tracker', roles: ['admin', 'manager', 'setter'] as Role[], icon: CrmTrackerIcon },
+  { name: 'SUIVI SETTING', href: '/crm-tracker', roles: ['admin', 'manager', 'setter'] as Role[], icon: CrmTrackerIcon },
   { name: 'Calendrier', href: '/contenu/calendrier', roles: ['admin'] as Role[], icon: CalendarIcon },
   { name: 'Performance', href: '/contenu/performance', roles: ['admin'] as Role[], icon: ChartIcon },
   { name: 'Le Générateur', href: '/contenu/generateur', roles: ['admin'] as Role[], icon: SparklesIcon },

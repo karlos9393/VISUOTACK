@@ -7,12 +7,16 @@ import { z } from 'zod'
 
 const crmEntrySchema = z.object({
   date: z.string().min(1, 'La date est requise'),
-  messages_envoyes: z.number().min(0),
-  reponses: z.number().min(0),
-  fup_envoyes: z.number().min(0),
-  reponses_fup: z.number().min(0),
-  rdv_bookes: z.number().min(0),
-  links_envoyes: z.number().min(0),
+  conversations_entrantes: z.number().int().min(0),
+  outbound_envoyes: z.number().int().min(0),
+  reponses_outbound: z.number().int().min(0),
+  fup_envoyes: z.number().int().min(0),
+  reponses_fup: z.number().int().min(0),
+  liens_rdv_envoyes: z.number().int().min(0),
+  rdv_bookes: z.number().int().min(0),
+  rdv_qualifies: z.number().int().min(0),
+  setter_present: z.boolean(),
+  notes: z.string().max(2000).nullable(),
 })
 
 export async function upsertCrmEntry(formData: FormData) {
@@ -20,14 +24,19 @@ export async function upsertCrmEntry(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Non authentifié' }
 
+  const notesRaw = formData.get('notes')?.toString().trim() || ''
   const raw = {
     date: formData.get('date')?.toString() || '',
-    messages_envoyes: Number(formData.get('messages_envoyes') || 0),
-    reponses: Number(formData.get('reponses') || 0),
+    conversations_entrantes: Number(formData.get('conversations_entrantes') || 0),
+    outbound_envoyes: Number(formData.get('outbound_envoyes') || 0),
+    reponses_outbound: Number(formData.get('reponses_outbound') || 0),
     fup_envoyes: Number(formData.get('fup_envoyes') || 0),
     reponses_fup: Number(formData.get('reponses_fup') || 0),
+    liens_rdv_envoyes: Number(formData.get('liens_rdv_envoyes') || 0),
     rdv_bookes: Number(formData.get('rdv_bookes') || 0),
-    links_envoyes: Number(formData.get('links_envoyes') || 0),
+    rdv_qualifies: Number(formData.get('rdv_qualifies') || 0),
+    setter_present: formData.get('setter_present') === 'true',
+    notes: notesRaw === '' ? null : notesRaw,
   }
 
   const result = crmEntrySchema.safeParse(raw)
@@ -45,12 +54,16 @@ export async function upsertCrmEntry(formData: FormData) {
 
   const now = new Date().toISOString()
   const values = {
-    messages_envoyes: result.data.messages_envoyes,
-    reponses: result.data.reponses,
+    conversations_entrantes: result.data.conversations_entrantes,
+    outbound_envoyes: result.data.outbound_envoyes,
+    reponses_outbound: result.data.reponses_outbound,
     fup_envoyes: result.data.fup_envoyes,
     reponses_fup: result.data.reponses_fup,
+    liens_rdv_envoyes: result.data.liens_rdv_envoyes,
     rdv_bookes: result.data.rdv_bookes,
-    links_envoyes: result.data.links_envoyes,
+    rdv_qualifies: result.data.rdv_qualifies,
+    setter_present: result.data.setter_present,
+    notes: result.data.notes,
     updated_at: now,
     updated_by: user.id,
   }
@@ -82,7 +95,16 @@ export async function upsertCrmEntryInline(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Non authentifié' }
 
-  const validFields = ['messages_envoyes', 'reponses', 'fup_envoyes', 'reponses_fup', 'rdv_bookes', 'links_envoyes']
+  const validFields = [
+    'conversations_entrantes',
+    'outbound_envoyes',
+    'reponses_outbound',
+    'fup_envoyes',
+    'reponses_fup',
+    'liens_rdv_envoyes',
+    'rdv_bookes',
+    'rdv_qualifies',
+  ]
   if (!validFields.includes(field)) {
     return { error: 'Champ invalide' }
   }

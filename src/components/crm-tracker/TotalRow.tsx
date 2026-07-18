@@ -1,6 +1,8 @@
 'use client'
 
 import type { DayData } from './DayRow'
+import { EDITABLE_COLS } from './DayRow'
+import { KPI_DEFS, computeKpiValue, getKpiColor, formatKpi, type CrmMetricsInput } from '@/lib/crm-kpi'
 
 interface TotalRowProps {
   days: DayData[]
@@ -8,119 +10,63 @@ interface TotalRowProps {
   showParColumn?: boolean
 }
 
-function average(values: (number | null)[]): number | null {
-  const valid = values.filter((v): v is number => v !== null)
-  return valid.length > 0 ? valid.reduce((a, b) => a + b, 0) / valid.length : null
-}
-
-function calcWeekTotals(days: DayData[]) {
-  const messages_envoyes = days.reduce((s, d) => s + d.messages_envoyes, 0)
-  const reponses = days.reduce((s, d) => s + d.reponses, 0)
-  const fup_envoyes = days.reduce((s, d) => s + d.fup_envoyes, 0)
-  const reponses_fup = days.reduce((s, d) => s + d.reponses_fup, 0)
-  const rdv_bookes = days.reduce((s, d) => s + d.rdv_bookes, 0)
-  const links_envoyes = days.reduce((s, d) => s + d.links_envoyes, 0)
-
-  const avg_pct_reponse = average(
-    days.map(d => d.messages_envoyes > 0 ? d.reponses / d.messages_envoyes * 100 : null)
-  )
-  const avg_pct_reponse_fup = average(
-    days.map(d => d.fup_envoyes > 0 ? d.reponses_fup / d.fup_envoyes * 100 : null)
-  )
-  const avg_pct_rdv_message = average(
-    days.map(d => d.messages_envoyes > 0 ? d.rdv_bookes / d.messages_envoyes * 100 : null)
-  )
-  const avg_pct_rdv_reponse = average(
-    days.map(d => (d.reponses + d.reponses_fup) > 0 ? d.rdv_bookes / (d.reponses + d.reponses_fup) * 100 : null)
-  )
-  const avg_pct_links_call = average(
-    days.map(d => d.links_envoyes > 0 ? d.rdv_bookes / d.links_envoyes * 100 : null)
-  )
-
-  return {
-    messages_envoyes,
-    reponses,
-    fup_envoyes,
-    reponses_fup,
-    rdv_bookes,
-    links_envoyes,
-    avg_pct_reponse,
-    avg_pct_reponse_fup,
-    avg_pct_rdv_message,
-    avg_pct_rdv_reponse,
-    avg_pct_links_call,
+// Somme des colonnes brutes sur la période.
+function sumColumns(days: DayData[]): CrmMetricsInput & { present: number; filled: number } {
+  const acc: CrmMetricsInput & { present: number; filled: number } = {
+    conversations_entrantes: 0,
+    outbound_envoyes: 0,
+    reponses_outbound: 0,
+    fup_envoyes: 0,
+    reponses_fup: 0,
+    liens_rdv_envoyes: 0,
+    rdv_bookes: 0,
+    rdv_qualifies: 0,
+    present: 0,
+    filled: 0,
   }
-}
-
-function formatPct(val: number | null): string {
-  if (val === null) return '\u2014'
-  return val.toFixed(1) + '%'
-}
-
-type MetricType = 'pct_reponse' | 'pct_reponse_fup' | 'pct_rdv_message' | 'pct_rdv_reponse' | 'pct_links_call'
-
-function getMetricColor(metric: MetricType, value: number | null): string {
-  if (value === null) return ''
-
-  const pct = value / 100 // valeurs sont en %, on compare en ratio
-
-  switch (metric) {
-    case 'pct_reponse':
-      if (pct > 0.40) return '#00FF00'
-      if (pct >= 0.20) return '#FF9900'
-      return '#FF0000'
-
-    case 'pct_reponse_fup':
-      if (pct > 0.30) return '#00FF00'
-      if (pct >= 0.15) return '#FF9900'
-      return '#FF0000'
-
-    case 'pct_rdv_message':
-      if (pct > 0.10) return '#00FF00'
-      if (pct >= 0.05) return '#B7E1CD'
-      if (pct >= 0.02) return '#FF9900'
-      return '#FF0000'
-
-    case 'pct_rdv_reponse':
-      if (pct > 0.40) return '#00FF00'
-      if (pct >= 0.30) return '#B7E1CD'
-      if (pct >= 0.15) return '#FF9900'
-      return '#FF0000'
-
-    case 'pct_links_call':
-      if (pct > 0.80) return '#00FF00'
-      if (pct >= 0.50) return '#B7E1CD'
-      if (pct >= 0.30) return '#FF9900'
-      return '#FF0000'
+  for (const d of days) {
+    for (const col of EDITABLE_COLS) {
+      acc[col as keyof CrmMetricsInput] += d[col] as number
+    }
+    if (d.filled) {
+      acc.filled += 1
+      if (d.setter_present) acc.present += 1
+    }
   }
+  return acc
 }
 
 export function TotalRow({ days, label, showParColumn = false }: TotalRowProps) {
-  const totals = calcWeekTotals(days)
+  const totals = sumColumns(days)
 
   return (
     <tr className="bg-gray-100 border-b-2 border-gray-300 font-semibold">
       <td className="px-3 py-2.5 text-xs text-gray-600">{label}</td>
       <td className="px-3 py-2.5 text-sm text-gray-500">Total</td>
-      <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.messages_envoyes}</td>
-      <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.reponses}</td>
+      <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.conversations_entrantes}</td>
+      <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.outbound_envoyes}</td>
+      <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.reponses_outbound}</td>
       <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.fup_envoyes}</td>
       <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.reponses_fup}</td>
+      <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.liens_rdv_envoyes}</td>
       <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.rdv_bookes}</td>
-      <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.links_envoyes}</td>
+      <td className="px-3 py-2.5 text-sm text-center text-gray-900">{totals.rdv_qualifies}</td>
+      {/* PRÉSENT : nombre de jours présents / jours saisis */}
+      <td className="px-2 py-2.5 text-xs text-center text-gray-500">
+        {totals.filled > 0 ? `${totals.present}/${totals.filled}` : '—'}
+      </td>
       {showParColumn && <td />}
       <td className="w-2" />
-      <TotalMetricCell value={formatPct(totals.avg_pct_reponse)} color={getMetricColor('pct_reponse', totals.avg_pct_reponse)} />
-      <TotalMetricCell value={formatPct(totals.avg_pct_reponse_fup)} color={getMetricColor('pct_reponse_fup', totals.avg_pct_reponse_fup)} />
-      <TotalMetricCell value={formatPct(totals.avg_pct_rdv_message)} color={getMetricColor('pct_rdv_message', totals.avg_pct_rdv_message)} />
-      <TotalMetricCell value={formatPct(totals.avg_pct_rdv_reponse)} color={getMetricColor('pct_rdv_reponse', totals.avg_pct_rdv_reponse)} />
-      <TotalMetricCell value={formatPct(totals.avg_pct_links_call)} color={getMetricColor('pct_links_call', totals.avg_pct_links_call)} />
+      {KPI_DEFS.map((def) => {
+        const value = computeKpiValue(def.key, totals)
+        return <TotalMetricCell key={def.key} value={formatKpi(value)} color={getKpiColor(def.key, value)} />
+      })}
     </tr>
   )
 }
 
 function TotalMetricCell({ value, color }: { value: string; color: string }) {
-  const isDash = value === '\u2014'
+  const isDash = value === '—'
   return (
     <td
       className="px-3 py-2.5 text-sm text-center font-bold"
@@ -130,6 +76,3 @@ function TotalMetricCell({ value, color }: { value: string; color: string }) {
     </td>
   )
 }
-
-// Export for reuse in KPI cards
-export { calcWeekTotals, average }
