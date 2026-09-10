@@ -36,11 +36,18 @@ export async function GET(
     const isVideo = mediaType === 'VIDEO' || mediaType === 'REEL'
     const hasEmptyPlays = isVideo && (!cached.plays || cached.plays === 0)
 
-    // Cache valide ET pas empoisonné (vidéo avec plays=0 → re-fetch)
-    if (age < CACHE_TTL_MS && !hasEmptyPlays) {
-      const views = (cached.plays && cached.plays > 0)
-        ? cached.plays
-        : (cached.impressions || 0)
+    // Le cache est "empoisonné" quand une vidéo n'a aucune vue exploitable :
+    // API v22 renvoie `views` (pas `plays`/`impressions`), donc une ligne d'avant
+    // la colonne `views` a views=plays=impressions=0 → re-fetch live.
+    const hasEmptyViews = isVideo && !cached.views && !cached.plays && !cached.impressions
+
+    // Cache valide ET pas empoisonné (vidéo sans vue exploitable → re-fetch)
+    if (age < CACHE_TTL_MS && !hasEmptyPlays && !hasEmptyViews) {
+      const views = cached.views && cached.views > 0
+        ? cached.views
+        : (cached.plays && cached.plays > 0)
+          ? cached.plays
+          : (cached.impressions || 0)
       return NextResponse.json({
         impressions: cached.impressions,
         reach: cached.reach,
@@ -71,6 +78,7 @@ export async function GET(
       saved: insights.saved || 0,
       video_views: insights.video_views || 0,
       plays: insights.plays || 0,
+      views: insights.views || 0,
       shares: insights.shares || 0,
       avg_watch_time: insights.avg_watch_time || 0,
       total_watch_time: insights.total_watch_time || 0,
