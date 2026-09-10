@@ -21,6 +21,8 @@ interface ScriptRow {
 }
 interface CacheRow {
   post_id: string
+  media_type: string | null
+  views: number | null
   plays: number | null
   impressions: number | null
   saved: number | null
@@ -81,7 +83,7 @@ export async function GET(request: NextRequest) {
     admin.from('generateur_scripts').select('id, titre, partie, semaine, contenu, source'),
     admin
       .from('post_insights_cache')
-      .select('post_id, plays, impressions, saved, reach, shares, avg_watch_time, fetched_at'),
+      .select('post_id, media_type, views, plays, impressions, saved, reach, shares, avg_watch_time, fetched_at'),
     admin.from('app_config').select('key, value').like('key', 'note:%'),
     admin.from('app_config').select('key, value').like('key', 'leads:%'),
   ])
@@ -106,13 +108,24 @@ export async function GET(request: NextRequest) {
   const insights = await mapPool<IGMedia, Insight>(posts, INSIGHTS_CONCURRENCY, async (post) => {
     const cached = cacheByPost.get(post.id)
     if (cached && Date.now() - new Date(cached.fetched_at).getTime() < CACHE_TTL_MS) {
-      const views = cached.plays && cached.plays > 0 ? cached.plays : (cached.impressions || 0)
-      return {
-        views,
-        saved: cached.saved || 0,
-        reach: cached.reach || 0,
-        shares: cached.shares || 0,
-        avg_watch_time: cached.avg_watch_time || 0,
+      // Vues : priorité à la colonne `views` (API v22), fallback plays puis impressions
+      const views = cached.views && cached.views > 0
+        ? cached.views
+        : (cached.plays && cached.plays > 0)
+          ? cached.plays
+          : (cached.impressions || 0)
+      // Anti-poison : une vidéo sans vue exploitable = ligne d'avant la colonne
+      // `views` (views=plays=impressions=0) → on ignore le cache et re-fetch live.
+      const isVideo = post.media_type === 'VIDEO' || post.media_type === 'REEL'
+      const hasEmptyViews = isVideo && !cached.views && !cached.plays && !cached.impressions
+      if (!hasEmptyViews) {
+        return {
+          views,
+          saved: cached.saved || 0,
+          reach: cached.reach || 0,
+          shares: cached.shares || 0,
+          avg_watch_time: cached.avg_watch_time || 0,
+        }
       }
     }
     const ins = await getMediaInsights(post.id, post.media_type)
@@ -128,6 +141,7 @@ export async function GET(request: NextRequest) {
             saved: ins.saved || 0,
             video_views: ins.video_views || 0,
             plays: ins.plays || 0,
+            views: ins.views || 0,
             shares: ins.shares || 0,
             avg_watch_time: ins.avg_watch_time || 0,
             total_watch_time: ins.total_watch_time || 0,
