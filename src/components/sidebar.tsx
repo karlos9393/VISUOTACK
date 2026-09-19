@@ -13,6 +13,7 @@ interface SidebarProps {
 
 const navigation = [
   { name: 'CRM Setting', href: '/crm-tracker/setting', roles: ['admin', 'manager', 'setter'] as Role[], icon: CrmSettingIcon },
+  { name: 'Tâches', href: '/tasks', roles: ['admin', 'manager', 'setter'] as Role[], icon: TasksIcon },
   { name: 'SUIVI SETTING', href: '/crm-tracker', roles: ['admin', 'manager', 'setter'] as Role[], icon: CrmTrackerIcon },
   { name: 'Calendrier', href: '/contenu/calendrier', roles: ['admin'] as Role[], icon: CalendarIcon },
   { name: 'Performance', href: '/contenu/performance', roles: ['admin'] as Role[], icon: ChartIcon },
@@ -20,12 +21,16 @@ const navigation = [
   { name: 'Admin', href: '/admin', roles: ['admin'] as Role[], icon: CogIcon },
 ]
 
+function TasksIcon({ className }: { className?: string }) {
+  return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" strokeWidth={1.8} /><path d="m7 12 3 3 7-7" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" /></svg>
+}
+
 export function Sidebar({ role, userName }: SidebarProps) {
   const pathname = usePathname()
   const filteredNav = navigation.filter((item) => item.roles.includes(role))
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 flex flex-col">
+    <aside className="fixed inset-y-0 left-0 z-40 w-64 bg-white border-r border-gray-200 hidden lg:flex flex-col">
       <div className="flex items-center gap-3 px-6 py-5 border-b border-gray-100">
         <Image
           src="/cyga-logo.png"
