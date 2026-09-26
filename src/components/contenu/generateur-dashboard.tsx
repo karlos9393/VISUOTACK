@@ -14,6 +14,8 @@ import {
 import { statutOf, type ScriptStatut } from '@/lib/types'
 import type { IGMedia, IGMediaInsights } from '@/lib/services/instagram'
 
+const LIST_PAGE_SIZE = 50
+
 const FILTERS: { key: ScriptStatut | 'all'; label: string }[] = [
   { key: 'a_associer', label: 'À faire' },
   { key: 'associe', label: 'Associés' },
@@ -90,6 +92,10 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks, 
     () => (filter === 'all' ? initialMedia : initialMedia.filter((m) => statutOf(links[m.id]) === filter)),
     [initialMedia, links, filter]
   )
+
+  // Liste paginée : jusqu'à 1000 posts rendus d'un coup sinon
+  const [visibleCount, setVisibleCount] = useState(LIST_PAGE_SIZE)
+  const visibleMedia = filteredMedia.slice(0, visibleCount)
 
   // Catalogue des 184 scripts (chargé une fois côté client)
   const [catalog, setCatalog] = useState<ScriptCatalogItem[] | null>(null)
@@ -171,7 +177,10 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks, 
                 return (
                   <button
                     key={f.key}
-                    onClick={() => setFilter(f.key)}
+                    onClick={() => {
+                      setFilter(f.key)
+                      setVisibleCount(LIST_PAGE_SIZE)
+                    }}
                     className={`text-xs font-medium px-2.5 py-1 rounded-full transition-colors ${
                       active ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
@@ -183,7 +192,7 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks, 
             </div>
           </div>
           <div className="p-3 space-y-2 overflow-y-auto max-h-[calc(100vh-220px)]">
-            {filteredMedia.map((post) => (
+            {visibleMedia.map((post) => (
               <PostCard
                 key={post.id}
                 post={post}
@@ -192,6 +201,15 @@ export function GenerateurDashboard({ initialMedia, tokenExpired, initialLinks, 
                 onSelect={() => setSelectedId(post.id)}
               />
             ))}
+            {filteredMedia.length > visibleCount && (
+              <button
+                type="button"
+                onClick={() => setVisibleCount((n) => n + LIST_PAGE_SIZE)}
+                className="w-full rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Afficher plus ({filteredMedia.length - visibleCount} restants)
+              </button>
+            )}
             {filteredMedia.length === 0 && (
               <p className="text-sm text-gray-400 text-center py-10">
                 {initialMedia.length === 0 ? 'Aucun post à afficher' : 'Rien dans cette catégorie'}
@@ -287,7 +305,7 @@ function PostCard({
     >
       {thumb ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={thumb} alt="" className="w-14 h-14 rounded-md object-cover flex-shrink-0" />
+        <img src={thumb} alt="" loading="lazy" decoding="async" className="w-14 h-14 rounded-md object-cover flex-shrink-0" />
       ) : (
         <div className="w-14 h-14 rounded-md bg-gray-200 flex-shrink-0" />
       )}

@@ -21,15 +21,17 @@ export default async function AdminPage({
   const from = (page - 1) * PAGE_SIZE
   const to = from + PAGE_SIZE - 1
 
-  const { data: users, count } = await adminClient
-    .from('users')
-    .select('*', { count: 'exact' })
-    .order('created_at', { ascending: true })
-    .range(from, to)
+  // Liste des utilisateurs et vérification du token Meta en parallèle
+  const [{ data: users, count }, tokenStatus] = await Promise.all([
+    adminClient
+      .from('users')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: true })
+      .range(from, to),
+    getTokenStatus(),
+  ])
 
   const totalPages = Math.ceil((count || 0) / PAGE_SIZE)
-
-  const tokenStatus = await getTokenStatus()
 
   return (
     <div className="space-y-6">

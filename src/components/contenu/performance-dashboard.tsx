@@ -4,12 +4,28 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { format, subDays, startOfDay, endOfDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { DateRangePicker, type DateRange } from './DateRangePicker'
 import { KpiGrid } from './kpi-grid'
 import { PostsTable } from './posts-table'
-import { TemporalChart, PostPerformanceChart } from './performance-charts'
-import { FollowersInsights } from './followers-insights'
 import type { IGMedia, IGAccountStats, IGAccountInsightsDay, IGMediaInsights } from '@/lib/services/instagram'
+
+// Graphiques (recharts, ~120 Ko gz) chargés à part : la page s'affiche sans les attendre
+function ChartSkeleton() {
+  return <div className="h-72 rounded-2xl border border-gray-200 bg-white motion-safe:animate-pulse" />
+}
+const TemporalChart = dynamic(
+  () => import('./performance-charts').then((m) => m.TemporalChart),
+  { ssr: false, loading: ChartSkeleton }
+)
+const PostPerformanceChart = dynamic(
+  () => import('./performance-charts').then((m) => m.PostPerformanceChart),
+  { ssr: false, loading: ChartSkeleton }
+)
+const FollowersInsights = dynamic(
+  () => import('./followers-insights').then((m) => m.FollowersInsights),
+  { ssr: false, loading: ChartSkeleton }
+)
 
 function formatFR(n: number): string {
   return n.toLocaleString('fr-FR')
