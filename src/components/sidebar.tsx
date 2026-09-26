@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import Link, { useLinkStatus } from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -23,6 +23,23 @@ const navigation = [
 
 function TasksIcon({ className }: { className?: string }) {
   return <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4" strokeWidth={1.8} /><path d="m7 12 3 3 7-7" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" /></svg>
+}
+
+// Contenu d'un lien : spinner dès le clic, jusqu'à l'affichage de la page
+function NavLinkContent({ icon: Icon, name }: { icon: (props: { className?: string }) => React.ReactNode; name: string }) {
+  const { pending } = useLinkStatus()
+  return (
+    <>
+      <Icon className="w-5 h-5 flex-shrink-0" />
+      <span className="flex-1">{name}</span>
+      {pending && (
+        <span
+          aria-hidden="true"
+          className="h-3.5 w-3.5 flex-shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
+        />
+      )}
+    </>
+  )
 }
 
 export function Sidebar({ role, userName }: SidebarProps) {
@@ -58,8 +75,7 @@ export function Sidebar({ role, userName }: SidebarProps) {
                   : 'text-gray-600 hover:bg-primary-soft hover:text-primary'
               )}
             >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              {item.name}
+              <NavLinkContent icon={item.icon} name={item.name} />
             </Link>
           )
         })}
