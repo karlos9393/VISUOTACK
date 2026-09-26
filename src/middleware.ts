@@ -56,6 +56,7 @@ export async function middleware(request: NextRequest) {
         pathname === '/' ||
         pathname.startsWith('/pipeline') ||
         pathname.startsWith('/contenu') ||
+        pathname.startsWith('/console') ||
         pathname.startsWith('/admin')
 
       if (needsRole) {
@@ -77,7 +78,7 @@ export async function middleware(request: NextRequest) {
         }
 
         // Pages réservées à l'admin
-        const adminOnlyPaths = ['/contenu', '/admin']
+        const adminOnlyPaths = ['/contenu', '/console', '/admin']
         const isAdminOnly = adminOnlyPaths.some(p => pathname.startsWith(p))
         if (isAdminOnly && role !== 'admin') {
           const url = request.nextUrl.clone()
