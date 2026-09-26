@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { format, subDays, startOfDay, endOfDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import Link from 'next/link'
@@ -50,40 +50,48 @@ export function PerformanceDashboard({
   const [insights, setInsights] = useState<Record<string, IGMediaInsights>>({})
   const [accountInsights, setAccountInsights] = useState<IGAccountInsightsDay[]>([])
 
-  // Batch fetch insights pour tous les posts (groupes de 5)
-  const fetchAllInsights = useCallback(async (media: IGMedia[]) => {
-    const batches: IGMedia[][] = []
-    for (let i = 0; i < media.length; i += 5) {
-      batches.push(media.slice(i, i + 5))
-    }
-    for (const batch of batches) {
-      const results = await Promise.all(
-        batch.map(async (post) => {
-          try {
-            const res = await fetch(`/api/instagram/media/${post.id}/insights?media_type=${post.media_type}`)
-            if (!res.ok) return { id: post.id, data: {} as IGMediaInsights }
-            const data = await res.json()
-            return { id: post.id, data: data as IGMediaInsights }
-          } catch {
-            return { id: post.id, data: {} as IGMediaInsights }
-          }
-        })
-      )
-      setInsights(prev => {
-        const next = { ...prev }
-        for (const r of results) {
-          next[r.id] = r.data
-        }
-        return next
-      })
-    }
-  }, [])
+  // Posts filtrés par période
+  const periodMedia = useMemo(() => filterByRange(allMedia, dateRange), [allMedia, dateRange])
+
+  // Insights des seuls posts de la période (pas de tout le compte), 6 requêtes en parallèle,
+  // et un seul setInsights pour ne re-rendre les graphiques qu'une fois
+  const requestedInsights = useRef<Set<string>>(new Set())
 
   useEffect(() => {
-    if (allMedia.length > 0) {
-      fetchAllInsights(allMedia)
+    const missing = periodMedia.filter((post) => !requestedInsights.current.has(post.id))
+    if (missing.length === 0) return
+    missing.forEach((post) => requestedInsights.current.add(post.id))
+
+    async function fetchInsight(post: IGMedia) {
+      try {
+        const res = await fetch(`/api/instagram/media/${post.id}/insights?media_type=${post.media_type}`)
+        if (res.ok) return { id: post.id, data: (await res.json()) as IGMediaInsights }
+      } catch {
+        // réseau : traité comme un échec ci-dessous
+      }
+      // Échec : on pourra retenter au prochain changement de période
+      requestedInsights.current.delete(post.id)
+      return { id: post.id, data: {} as IGMediaInsights }
     }
-  }, [allMedia, fetchAllInsights])
+
+    async function fetchAll() {
+      const results: { id: string; data: IGMediaInsights }[] = []
+      let next = 0
+      async function worker() {
+        while (next < missing.length) {
+          const post = missing[next++]
+          results.push(await fetchInsight(post))
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(6, missing.length) }, worker))
+      setInsights((prev) => {
+        const merged = { ...prev }
+        for (const r of results) merged[r.id] = r.data
+        return merged
+      })
+    }
+    fetchAll()
+  }, [periodMedia])
 
   // Charger les account insights quand la période change
   useEffect(() => {
@@ -94,9 +102,6 @@ export function PerformanceDashboard({
       .then(res => setAccountInsights(res.data || []))
       .catch(() => setAccountInsights([]))
   }, [dateRange])
-
-  // Posts filtrés par période
-  const periodMedia = useMemo(() => filterByRange(allMedia, dateRange), [allMedia, dateRange])
 
   // KPIs
   const totalViews = useMemo(() =>

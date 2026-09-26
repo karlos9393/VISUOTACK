@@ -18,10 +18,6 @@ export async function GET(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  if (!rateLimit(user.id, 60, 60_000)) {
-    return NextResponse.json({ error: 'Trop de requêtes' }, { status: 429 })
-  }
-
   const mediaType = request.nextUrl.searchParams.get('media_type') || 'IMAGE'
   const postId = id
 
@@ -35,7 +31,6 @@ export async function GET(
   if (cached) {
     const age = Date.now() - new Date(cached.fetched_at).getTime()
     const isVideo = mediaType === 'VIDEO' || mediaType === 'REEL'
-    const hasEmptyPlays = isVideo && (!cached.plays || cached.plays === 0)
 
     // Le cache est "empoisonné" quand une vidéo n'a aucune vue exploitable :
     // API v22 renvoie `views` (pas `plays`/`impressions`), donc une ligne d'avant
@@ -43,7 +38,7 @@ export async function GET(
     const hasEmptyViews = isVideo && !cached.views && !cached.plays && !cached.impressions
 
     // Cache valide ET pas empoisonné (vidéo sans vue exploitable → re-fetch)
-    if (age < CACHE_TTL_MS && !hasEmptyPlays && !hasEmptyViews) {
+    if (age < CACHE_TTL_MS && !hasEmptyViews) {
       const views = cached.views && cached.views > 0
         ? cached.views
         : (cached.plays && cached.plays > 0)
@@ -64,6 +59,11 @@ export async function GET(
     }
   }
 
+  // Limite uniquement les appels live à Meta (les lectures du cache sont gratuites)
+  if (!rateLimit(user.id, 60, 60_000)) {
+    return NextResponse.json({ error: 'Trop de requêtes' }, { status: 429 })
+  }
+
   // Appeler l'API Meta
   const insights = await getMediaInsights(postId, mediaType)
 
@@ -71,7 +71,7 @@ export async function GET(
   const hasData = insights.plays !== undefined || insights.impressions !== undefined || insights.saved !== undefined
   if (hasData) {
     const admin = createAdminClient()
-    await admin.from('post_insights_cache').upsert({
+    const { error: cacheError } = await admin.from('post_insights_cache').upsert({
       post_id: postId,
       media_type: mediaType,
       impressions: insights.impressions || 0,
@@ -85,6 +85,8 @@ export async function GET(
       total_watch_time: insights.total_watch_time || 0,
       fetched_at: new Date().toISOString(),
     }, { onConflict: 'post_id' })
+    // Une écriture ratée laissait le cache figé sans aucune trace (colonne manquante en prod)
+    if (cacheError) console.error('[insights] cache upsert failed:', cacheError.message)
   }
 
   return NextResponse.json(insights)
