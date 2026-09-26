@@ -3,21 +3,9 @@
 // layout 'funnel' = étapes numérotées dans l'ordre du tableau ;
 // offFunnel = page hors parcours (ex. non éligible), affichée sous les étapes.
 
-export interface ConsoleLink {
-  label: string
-  url: string
-  description?: string
-  offFunnel?: boolean
-}
+import type { ConsoleLink, ConsoleSection } from './types'
 
-export interface ConsoleSection {
-  id: string
-  title: string
-  description: string
-  tags?: string[]
-  layout: 'funnel' | 'grid'
-  links: ConsoleLink[]
-}
+export type { ConsoleLink, ConsoleSection } from './types'
 
 const SITE = 'https://cyga-group.com'
 
@@ -38,6 +26,7 @@ export const CONSOLE_SECTIONS: ConsoleSection[] = [
     title: 'Masterclass Instagram',
     description: 'Tunnel masterclass · préfixe /insta',
     tags: ['Instagram'],
+    icon: 'instagram',
     layout: 'funnel',
     links: masterclassTunnel('insta'),
   },
@@ -46,6 +35,7 @@ export const CONSOLE_SECTIONS: ConsoleSection[] = [
     title: 'Masterclass TikTok',
     description: 'Tunnel masterclass · préfixe /ttk',
     tags: ['TikTok'],
+    icon: 'tiktok',
     layout: 'funnel',
     links: masterclassTunnel('ttk'),
   },
@@ -54,14 +44,16 @@ export const CONSOLE_SECTIONS: ConsoleSection[] = [
     title: 'Masterclass YouTube',
     description: 'Tunnel masterclass · préfixe /ytb',
     tags: ['YouTube'],
+    icon: 'youtube',
     layout: 'funnel',
     links: masterclassTunnel('ytb'),
   },
   {
     id: 'webinaire-canada',
     title: 'Tunnel webinaire Canada',
-    description: 'Optin → merci/WhatsApp → booking → thank you page',
+    description: 'Tunnel webinaire · préfixe /conference',
     tags: ['Canada'],
+    icon: 'webinar',
     layout: 'funnel',
     links: [
       { label: 'Optin webinaire', description: 'Là où les gens s’inscrivent', url: `${SITE}/conference` },
@@ -75,6 +67,7 @@ export const CONSOLE_SECTIONS: ConsoleSection[] = [
     title: 'Lead magnet Prompt Lovable',
     description: 'Parcours YouTube → prompt Lovable',
     tags: ['YouTube'],
+    icon: 'sparkles',
     layout: 'funnel',
     links: [
       { label: 'Optin', description: 'Capture prospect, formulaire YouTube', url: `${SITE}/prompt-lovable` },
@@ -86,6 +79,7 @@ export const CONSOLE_SECTIONS: ConsoleSection[] = [
     id: 'rendez-vous',
     title: 'Rendez-vous & closing',
     description: 'À envoyer aux leads avant l’appel',
+    icon: 'calendar',
     layout: 'grid',
     links: [
       { label: 'Pré-call RDV', description: 'Page pré-call générale, à envoyer sur WhatsApp', url: `${SITE}/precall` },
@@ -96,6 +90,7 @@ export const CONSOLE_SECTIONS: ConsoleSection[] = [
     id: 'lead-magnets',
     title: 'Lead magnets',
     description: 'Ressources gratuites pour capter des leads',
+    icon: 'magnet',
     layout: 'grid',
     links: [
       { label: 'Procédure hôte', description: 'Lead magnet', url: `${SITE}/procedurehote` },
@@ -105,6 +100,7 @@ export const CONSOLE_SECTIONS: ConsoleSection[] = [
     id: 'contenu',
     title: 'Contenu',
     description: 'Production et fichiers',
+    icon: 'folder',
     layout: 'grid',
     links: [
       {
@@ -115,3 +111,7 @@ export const CONSOLE_SECTIONS: ConsoleSection[] = [
     ],
   },
 ]
+
+export function getConsoleSection(id: string): ConsoleSection | undefined {
+  return CONSOLE_SECTIONS.find((section) => section.id === id)
+}
