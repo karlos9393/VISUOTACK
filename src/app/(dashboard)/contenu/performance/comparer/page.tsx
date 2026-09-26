@@ -1,11 +1,10 @@
-import { createClient } from '@/lib/supabase/server'
 import { ComparerDashboard } from '@/components/contenu/comparer-dashboard'
+import { getSessionUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ComparerPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) return null
 
   return <ComparerDashboard />

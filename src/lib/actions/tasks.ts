@@ -2,14 +2,13 @@
 
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { getSessionUser } from '@/lib/auth'
 import { taskPatchSchema, labelSchema } from '@/lib/tasks/validation'
 import type { Task, TaskData, TaskPatch } from '@/lib/tasks/types'
 
 async function session() {
   const client = await createClient()
-  const {
-    data: { user }
-  } = await client.auth.getUser()
+  const user = await getSessionUser()
   if (!user) throw new Error('Votre session a expiré. Reconnectez-vous.')
   return { client, user }
 }

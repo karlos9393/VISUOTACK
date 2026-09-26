@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { getSessionUser, getProfile } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Sidebar } from '@/components/sidebar'
 import { MobileNav } from '@/components/mobile-nav'
@@ -13,12 +13,9 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-
   let user = null
   try {
-    const { data } = await supabase.auth.getUser()
-    user = data.user
+    user = await getSessionUser()
   } catch (e) {
     console.error('Layout auth error:', e)
     redirect('/login')
@@ -33,12 +30,7 @@ export default async function DashboardLayout({
   let profile = null
 
   try {
-    const { data } = await adminClient
-      .from('users')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-    profile = data
+    profile = await getProfile()
   } catch (e) {
     console.error('Layout profile fetch error:', e)
   }

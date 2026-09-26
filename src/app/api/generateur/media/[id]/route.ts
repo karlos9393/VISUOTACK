@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { getMediaById } from '@/lib/services/instagram'
 import { rateLimit } from '@/lib/rate-limit'
+import { getSessionUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,8 +10,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }

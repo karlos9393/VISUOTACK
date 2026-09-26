@@ -1,13 +1,12 @@
-import { createClient } from '@/lib/supabase/server'
 import { getMediaList } from '@/lib/services/instagram'
 import { getAllLinks, getAllNotes, getAllLeads } from '@/lib/actions/generateur'
 import { GenerateurDashboard } from '@/components/contenu/generateur-dashboard'
+import { getSessionUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
 export default async function GenerateurPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) return null
 
   // Même source que /contenu/performance — on réutilise le service Instagram existant

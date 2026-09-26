@@ -1,12 +1,11 @@
-import { createClient } from '@/lib/supabase/server'
 import { PerformanceDashboard } from '@/components/contenu/performance-dashboard'
 import { getAccountStats, getMediaList } from '@/lib/services/instagram'
+import { getSessionUser } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
 export default async function PerformancePage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) return null
 
   // Charger les données côté serveur (accès direct aux env vars)

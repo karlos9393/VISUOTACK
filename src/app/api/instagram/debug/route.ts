@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   getMediaList,
@@ -8,6 +7,7 @@ import {
   TOKEN_CONFIG_KEY,
 } from '@/lib/services/instagram'
 import { getScriptsCatalog } from '@/lib/actions/generateur'
+import { getSessionUser } from '@/lib/auth'
 
 const BASE_URL = 'https://graph.facebook.com/v22.0'
 
@@ -20,8 +20,7 @@ function sanitize(value: unknown, token: string): unknown {
 }
 
 export async function GET() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }

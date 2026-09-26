@@ -37,9 +37,10 @@ export async function middleware(request: NextRequest) {
   )
 
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    // JWT vérifié localement (ES256 + JWKS en cache) : pas d'appel réseau à Supabase Auth.
+    // getClaims rafraîchit aussi la session si le token a expiré.
+    const { data: claimsData } = await supabase.auth.getClaims()
+    const user = claimsData?.claims?.sub ? { id: claimsData.claims.sub } : null
 
     const pathname = request.nextUrl.pathname
 
@@ -50,8 +51,13 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
+    // Préchargement de lien (sidebar) : session rafraîchie ci-dessus, mais pas de lecture
+    // du rôle — le préchargement ne rend que le layout + l'écran de chargement.
+    const isPrefetch = request.headers.has('next-router-prefetch') ||
+      request.headers.get('purpose') === 'prefetch'
+
     // Pour les cas qui nécessitent le rôle, on le récupère une seule fois
-    if (user) {
+    if (user && !isPrefetch) {
       const needsRole = pathname.startsWith('/login') ||
         pathname === '/' ||
         pathname.startsWith('/pipeline') ||

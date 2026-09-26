@@ -1,9 +1,9 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { getSessionUser } from '@/lib/auth'
 
 const crmEntrySchema = z.object({
   date: z.string().min(1, 'La date est requise'),
@@ -20,8 +20,7 @@ const crmEntrySchema = z.object({
 })
 
 export async function upsertCrmEntry(formData: FormData) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) return { error: 'Non authentifié' }
 
   const notesRaw = formData.get('notes')?.toString().trim() || ''
@@ -91,8 +90,7 @@ export async function upsertCrmEntryInline(
   field: string,
   value: number
 ) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) return { error: 'Non authentifié' }
 
   const validFields = [
@@ -143,8 +141,7 @@ export async function upsertCrmEntryInline(
 }
 
 export async function getCrmEntriesForMonth(year: number, month: number) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) return []
 
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`
@@ -166,8 +163,7 @@ export async function getCrmEntriesForMonth(year: number, month: number) {
 }
 
 export async function getCrmEntriesForDateRange(startDate: string, endDate: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) return []
 
   // Lecture partagée : via le client admin (voir getCrmEntriesForMonth).
@@ -183,8 +179,7 @@ export async function getCrmEntriesForDateRange(startDate: string, endDate: stri
 }
 
 export async function getCrmEntryForDate(date: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) return null
 
   // Lecture partagée : via le client admin (voir getCrmEntriesForMonth).
@@ -210,8 +205,7 @@ export async function getSetters() {
 }
 
 export async function getCurrentUserProfile() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) return null
 
   const adminClient = createAdminClient()

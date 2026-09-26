@@ -1,8 +1,8 @@
 import { NextResponse, NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getMediaList, getMediaInsights, type IGMedia } from '@/lib/services/instagram'
 import { statutOf } from '@/lib/types'
+import { getSessionUser, getProfile } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -66,11 +66,10 @@ async function mapPool<T, R>(items: T[], concurrency: number, fn: (item: T) => P
 }
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-  const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single()
+  const profile = await getProfile()
   if (profile?.role !== 'admin') return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
   const sort = request.nextUrl.searchParams.get('sort') === 'views' ? 'views' : 'date'

@@ -1,21 +1,13 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getProfile } from '@/lib/auth'
 
 /** Vérifie que l'utilisateur courant est admin. Retourne l'user id ou null. */
 async function requireAdmin(): Promise<string | null> {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-
-  const { data: profile } = await supabase
-    .from('users')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  return profile?.role === 'admin' ? user.id : null
+  // Profil mémorisé pour la requête : les 3 lectures du rendu de la page n'en font qu'une
+  const profile = await getProfile()
+  return profile?.role === 'admin' ? profile.id : null
 }
 
 export interface ScriptCatalogItem {
