@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -34,52 +34,67 @@ const FIELDS: { key: keyof Values; label: string }[] = [
   { key: 'rdv_qualifies', label: 'RDV qualifiés' },
 ]
 
-export function CrmSettingForm() {
-  const today = new Date().toISOString().split('T')[0]
-  const [date, setDate] = useState(today)
+type CrmEntry = Awaited<ReturnType<typeof getCrmEntryForDate>>
+
+function valuesFromEntry(entry: CrmEntry): Values {
+  if (!entry) return INITIAL_VALUES
+  return {
+    conversations_entrantes: entry.conversations_entrantes ?? 0,
+    outbound_envoyes: entry.outbound_envoyes ?? 0,
+    reponses_outbound: entry.reponses_outbound ?? 0,
+    fup_envoyes: entry.fup_envoyes ?? 0,
+    reponses_fup: entry.reponses_fup ?? 0,
+    liens_rdv_envoyes: entry.liens_rdv_envoyes ?? 0,
+    rdv_bookes: entry.rdv_bookes ?? 0,
+    rdv_qualifies: entry.rdv_qualifies ?? 0,
+  }
+}
+
+interface CrmSettingFormProps {
+  initialDate: string
+  // Entrée de initialDate, chargée avec la page (évite un aller-retour après l'affichage)
+  initialEntry: CrmEntry
+}
+
+export function CrmSettingForm({ initialDate, initialEntry }: CrmSettingFormProps) {
+  const [date, setDate] = useState(initialDate)
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(false)
   const [error, setError] = useState('')
   const { toast } = useToast()
 
-  const [values, setValues] = useState<Values>(INITIAL_VALUES)
-  const [setterPresent, setSetterPresent] = useState(true)
-  const [notes, setNotes] = useState('')
+  const [values, setValues] = useState<Values>(() => valuesFromEntry(initialEntry))
+  const [setterPresent, setSetterPresent] = useState(initialEntry?.setter_present ?? true)
+  const [notes, setNotes] = useState(initialEntry?.notes ?? '')
 
-  const [isUpdate, setIsUpdate] = useState(false)
+  const [isUpdate, setIsUpdate] = useState(!!initialEntry)
   const [submitted, setSubmitted] = useState<(Values & { date: string }) | null>(null)
 
   // Aperçu des KPI en temps réel (source unique : crm-kpi.ts)
   const kpis = useMemo(() => computeAllKpis(values), [values])
 
+  // Date dont les valeurs sont affichées : pas de rechargement pour celle reçue avec la page
+  const loadedDate = useRef(initialDate)
+
   useEffect(() => {
+    if (date === loadedDate.current) return
+    loadedDate.current = date
+    let cancelled = false
     async function loadExisting() {
       setLoadingData(true)
       setSubmitted(null)
       const entry = await getCrmEntryForDate(date)
-      if (entry) {
-        setValues({
-          conversations_entrantes: entry.conversations_entrantes ?? 0,
-          outbound_envoyes: entry.outbound_envoyes ?? 0,
-          reponses_outbound: entry.reponses_outbound ?? 0,
-          fup_envoyes: entry.fup_envoyes ?? 0,
-          reponses_fup: entry.reponses_fup ?? 0,
-          liens_rdv_envoyes: entry.liens_rdv_envoyes ?? 0,
-          rdv_bookes: entry.rdv_bookes ?? 0,
-          rdv_qualifies: entry.rdv_qualifies ?? 0,
-        })
-        setSetterPresent(entry.setter_present ?? true)
-        setNotes(entry.notes ?? '')
-        setIsUpdate(true)
-      } else {
-        setValues(INITIAL_VALUES)
-        setSetterPresent(true)
-        setNotes('')
-        setIsUpdate(false)
-      }
+      if (cancelled) return
+      setValues(valuesFromEntry(entry))
+      setSetterPresent(entry?.setter_present ?? true)
+      setNotes(entry?.notes ?? '')
+      setIsUpdate(!!entry)
       setLoadingData(false)
     }
     loadExisting()
+    return () => {
+      cancelled = true
+    }
   }, [date])
 
   function handleFieldChange(field: keyof Values, val: string) {

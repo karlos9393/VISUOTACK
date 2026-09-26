@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { getSessionUser } from '@/lib/auth'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { startOfWeek, endOfWeek, format } from 'date-fns'
@@ -7,20 +7,10 @@ import { CrmTrackerPage } from '@/components/crm-tracker/CrmTrackerPage'
 export const dynamic = 'force-dynamic'
 
 export default async function CrmTrackerRoute() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSessionUser()
   if (!user) redirect('/login')
 
   const adminClient = createAdminClient()
-
-  // Profil courant
-  const { data: profile } = await adminClient
-    .from('users')
-    .select('id, full_name, email, role')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile) redirect('/login')
 
   // Semaine courante (vue par défaut = week)
   const now = new Date()
@@ -38,7 +28,7 @@ export default async function CrmTrackerRoute() {
 
   return (
     <CrmTrackerPage
-      currentUserId={profile.id}
+      currentUserId={user.id}
       initialEntries={entries || []}
     />
   )

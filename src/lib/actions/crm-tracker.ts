@@ -19,6 +19,38 @@ const crmEntrySchema = z.object({
   notes: z.string().max(2000).nullable(),
 })
 
+// Donnée partagée : une seule entrée par date (UNIQUE(date)).
+// Mise à jour d'abord — cas courant, 1 seule requête — puis création si la date n'existe pas.
+async function writeEntryForDate(
+  date: string,
+  userId: string,
+  values: Record<string, unknown>
+): Promise<string | null> {
+  const adminClient = createAdminClient()
+  const { data: updated, error } = await adminClient
+    .from('crm_daily_entries')
+    .update(values)
+    .eq('date', date)
+    .select('id')
+  if (error) return error.message
+  if (updated && updated.length > 0) return null
+
+  const { error: insertError } = await adminClient
+    .from('crm_daily_entries')
+    .insert({ setter_id: userId, date, ...values })
+  if (!insertError) return null
+
+  // Création concurrente de la même date : la ligne existe maintenant, on la met à jour
+  if (insertError.code === '23505') {
+    const { error: retryError } = await adminClient
+      .from('crm_daily_entries')
+      .update(values)
+      .eq('date', date)
+    return retryError ? retryError.message : null
+  }
+  return insertError.message
+}
+
 export async function upsertCrmEntry(formData: FormData) {
   const user = await getSessionUser()
   if (!user) return { error: 'Non authentifié' }
@@ -43,15 +75,6 @@ export async function upsertCrmEntry(formData: FormData) {
     return { error: result.error.issues[0].message }
   }
 
-  // Donnée partagée : une seule entrée par date, on upsert sur le conflit date
-  const adminClient = createAdminClient()
-  const { data: existing } = await adminClient
-    .from('crm_daily_entries')
-    .select('id')
-    .eq('date', result.data.date)
-    .single()
-
-  const now = new Date().toISOString()
   const values = {
     conversations_entrantes: result.data.conversations_entrantes,
     outbound_envoyes: result.data.outbound_envoyes,
@@ -63,22 +86,12 @@ export async function upsertCrmEntry(formData: FormData) {
     rdv_qualifies: result.data.rdv_qualifies,
     setter_present: result.data.setter_present,
     notes: result.data.notes,
-    updated_at: now,
+    updated_at: new Date().toISOString(),
     updated_by: user.id,
   }
 
-  if (existing) {
-    const { error } = await adminClient
-      .from('crm_daily_entries')
-      .update(values)
-      .eq('id', existing.id)
-    if (error) return { error: error.message }
-  } else {
-    const { error } = await adminClient
-      .from('crm_daily_entries')
-      .insert({ setter_id: user.id, date: result.data.date, ...values })
-    if (error) return { error: error.message }
-  }
+  const writeError = await writeEntryForDate(result.data.date, user.id, values)
+  if (writeError) return { error: writeError }
 
   revalidatePath('/crm-tracker')
   revalidatePath('/crm-tracker/setting')
@@ -107,35 +120,14 @@ export async function upsertCrmEntryInline(
     return { error: 'Champ invalide' }
   }
 
-  // Donnée partagée : une seule entrée par date
-  const adminClient = createAdminClient()
-  const { data: existing } = await adminClient
-    .from('crm_daily_entries')
-    .select('id')
-    .eq('date', date)
-    .single()
+  const writeError = await writeEntryForDate(date, user.id, {
+    [field]: value,
+    updated_at: new Date().toISOString(),
+    updated_by: user.id,
+  })
+  if (writeError) return { error: writeError }
 
-  const now = new Date().toISOString()
-
-  if (existing) {
-    const { error } = await adminClient
-      .from('crm_daily_entries')
-      .update({ [field]: value, updated_at: now, updated_by: user.id })
-      .eq('id', existing.id)
-    if (error) return { error: error.message }
-  } else {
-    const { error } = await adminClient
-      .from('crm_daily_entries')
-      .insert({
-        setter_id: user.id,
-        date,
-        [field]: value,
-        updated_at: now,
-        updated_by: user.id,
-      })
-    if (error) return { error: error.message }
-  }
-
+  // Invalide le cache du routeur (sinon « Retour » réafficherait l'ancien tableau)
   revalidatePath('/crm-tracker')
   return { success: true }
 }

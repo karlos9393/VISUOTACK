@@ -189,11 +189,9 @@ function EditableCell({
       )}
       onClick={handleClick}
     >
-      {saving ? (
-        <span className="text-primary text-xs">...</span>
-      ) : (
-        value === 0 ? '' : value
-      )}
+      {/* La valeur saisie s'affiche tout de suite (mise à jour optimiste) ;
+          elle reste en couleur d'accent le temps de l'enregistrement */}
+      <span className={cn(saving && 'text-primary')}>{value === 0 ? '' : value}</span>
     </td>
   )
 }

@@ -1,8 +1,13 @@
 import { CrmSettingForm } from '@/components/crm-tracker/CrmSettingForm'
+import { getCrmEntryForDate } from '@/lib/actions/crm-tracker'
 
 export const dynamic = 'force-dynamic'
 
-export default function CrmSettingPage() {
+export default async function CrmSettingPage() {
+  // Même calcul de date que le formulaire (UTC) : l'entrée du jour arrive avec la page
+  const today = new Date().toISOString().split('T')[0]
+  const entry = await getCrmEntryForDate(today)
+
   return (
     <div>
       <div className="mb-6">
@@ -11,7 +16,7 @@ export default function CrmSettingPage() {
           Remplis tes stats de prospection du jour
         </p>
       </div>
-      <CrmSettingForm />
+      <CrmSettingForm initialDate={today} initialEntry={entry} />
     </div>
   )
 }
